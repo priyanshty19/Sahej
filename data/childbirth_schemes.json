@@ -1,0 +1,330 @@
+{
+  "$comment": "Sahej childbirth benefit knowledge base v0.2. Structured, sourced, machine-readable rules for every benefit a new mother/newborn is owed, with eligibility predicates, document dependencies, deadlines, cash, provenance and confidence. Amounts/conditions are research-grade drafts; rules flagged needs_verification must be confirmed against current Government Orders before real use.",
+  "version": "0.2.0",
+  "as_of": "2026-06-14",
+  "country": "IN",
+  "life_event": "childbirth",
+
+  "asha_hbnc_visits": {
+    "visit_days": [3, 7, 14, 21, 28, 42],
+    "home_delivery_extra_visit_day": 0,
+    "asha_incentive_inr": 250,
+    "source_urls": ["https://nhm.gov.in/index4.php?lang=1&level=0&linkid=491&lid=760"]
+  },
+
+  "states": [
+    {"code": "AP", "name": "Andhra Pradesh", "type": "state", "lps": false, "optout": []},
+    {"code": "AR", "name": "Arunachal Pradesh", "type": "state", "lps": false, "optout": []},
+    {"code": "AS", "name": "Assam", "type": "state", "lps": true, "optout": []},
+    {"code": "BR", "name": "Bihar", "type": "state", "lps": true, "optout": []},
+    {"code": "CG", "name": "Chhattisgarh", "type": "state", "lps": true, "optout": []},
+    {"code": "GA", "name": "Goa", "type": "state", "lps": false, "optout": []},
+    {"code": "GJ", "name": "Gujarat", "type": "state", "lps": false, "optout": []},
+    {"code": "HR", "name": "Haryana", "type": "state", "lps": false, "optout": []},
+    {"code": "HP", "name": "Himachal Pradesh", "type": "state", "lps": false, "optout": []},
+    {"code": "JH", "name": "Jharkhand", "type": "state", "lps": true, "optout": []},
+    {"code": "KA", "name": "Karnataka", "type": "state", "lps": false, "optout": []},
+    {"code": "KL", "name": "Kerala", "type": "state", "lps": false, "optout": []},
+    {"code": "MP", "name": "Madhya Pradesh", "type": "state", "lps": true, "optout": []},
+    {"code": "MH", "name": "Maharashtra", "type": "state", "lps": false, "optout": []},
+    {"code": "MN", "name": "Manipur", "type": "state", "lps": false, "optout": []},
+    {"code": "ML", "name": "Meghalaya", "type": "state", "lps": false, "optout": []},
+    {"code": "MZ", "name": "Mizoram", "type": "state", "lps": false, "optout": []},
+    {"code": "NL", "name": "Nagaland", "type": "state", "lps": false, "optout": []},
+    {"code": "OR", "name": "Odisha", "type": "state", "lps": true, "optout": []},
+    {"code": "PB", "name": "Punjab", "type": "state", "lps": false, "optout": []},
+    {"code": "RJ", "name": "Rajasthan", "type": "state", "lps": true, "optout": []},
+    {"code": "SK", "name": "Sikkim", "type": "state", "lps": false, "optout": []},
+    {"code": "TN", "name": "Tamil Nadu", "type": "state", "lps": false, "optout": []},
+    {"code": "TG", "name": "Telangana", "type": "state", "lps": false, "optout": []},
+    {"code": "TR", "name": "Tripura", "type": "state", "lps": false, "optout": []},
+    {"code": "UP", "name": "Uttar Pradesh", "type": "state", "lps": true, "optout": []},
+    {"code": "UK", "name": "Uttarakhand", "type": "state", "lps": true, "optout": []},
+    {"code": "WB", "name": "West Bengal", "type": "state", "lps": false, "optout": ["pmmvy"]},
+    {"code": "AN", "name": "Andaman & Nicobar Islands", "type": "ut", "lps": false, "optout": []},
+    {"code": "CH", "name": "Chandigarh", "type": "ut", "lps": false, "optout": []},
+    {"code": "DH", "name": "Dadra & Nagar Haveli and Daman & Diu", "type": "ut", "lps": false, "optout": []},
+    {"code": "DL", "name": "Delhi", "type": "ut", "lps": false, "optout": []},
+    {"code": "JK", "name": "Jammu & Kashmir", "type": "ut", "lps": true, "optout": []},
+    {"code": "LA", "name": "Ladakh", "type": "ut", "lps": false, "optout": []},
+    {"code": "LD", "name": "Lakshadweep", "type": "ut", "lps": false, "optout": []},
+    {"code": "PY", "name": "Puducherry", "type": "ut", "lps": false, "optout": []}
+  ],
+
+  "schemes": [
+    {
+      "id": "pmmvy",
+      "name": "Pradhan Mantri Matru Vandana Yojana",
+      "name_hi": "प्रधानमंत्री मातृ वंदना योजना",
+      "authority": "Ministry of Women & Child Development (central)",
+      "category": "maternity_cash",
+      "confidence": "high",
+      "source_urls": [
+        "https://web.umang.gov.in/landing/scheme/detail/pradhan-mantri-matru-vandana-yojana_pmmvy.html",
+        "https://socialwelfare.vikaspedia.in/viewcontent/social-welfare/women-and-child-development/women-development-1/pradhan-mantri-matru-vandana-yojana"
+      ],
+      "eligibility": {"all": [
+        {"field": "mother_age_years", "op": "ge", "value": 18.58, "label": "mother at least 18 years 7 months"},
+        {"field": "mother_age_years", "op": "lt", "value": 55, "label": "mother under 55"},
+        {"field": "days_since_birth", "op": "le", "value": 270, "label": "within 270 days of childbirth"},
+        {"field": "govt_employee", "op": "eq", "value": false, "label": "not a regular govt/PSU employee with paid maternity leave", "confidence": "medium"}
+      ]},
+      "benefit_components": [
+        {"id": "pmmvy_i1", "title": "PMMVY 1st installment", "title_hi": "पहली किस्त", "phase": "pregnancy", "cash_inr": 1000, "deadline_day": null,
+         "eligibility": {"all": [{"field": "child_number", "op": "eq", "value": 1}]},
+         "documents": ["MCP card / pregnancy registration", "Aadhaar", "Aadhaar-linked bank account"], "depends_on": [],
+         "note": "Claimed during pregnancy at early registration. Verify it was paid."},
+        {"id": "pmmvy_i2", "title": "PMMVY 2nd installment", "title_hi": "दूसरी किस्त", "phase": "pregnancy", "cash_inr": 2000, "deadline_day": null,
+         "eligibility": {"all": [{"field": "child_number", "op": "eq", "value": 1}]},
+         "documents": ["proof of at least one ANC check-up"], "depends_on": [],
+         "note": "After 6 months of pregnancy + at least one antenatal check-up. Verify it was paid."},
+        {"id": "pmmvy_i3", "title": "PMMVY 3rd installment", "title_hi": "तीसरी किस्त", "phase": "post_birth", "cash_inr": 2000, "deadline_day": 270,
+         "eligibility": {"all": [{"field": "child_number", "op": "eq", "value": 1}, {"field": "birth_outcome", "op": "eq", "value": "live"}]},
+         "documents": ["birth certificate", "child immunization record (first cycle)"],
+         "depends_on": ["birth_registration.register_birth", "immunization_uip.birth_doses"],
+         "note": "Paid after birth is registered AND child has had the first vaccination cycle. The installment most often lost."},
+        {"id": "pmmvy_second_girl", "title": "PMMVY for second child (girl)", "title_hi": "दूसरी संतान (बालिका) हेतु लाभ", "phase": "post_birth", "cash_inr": 6000, "deadline_day": 270,
+         "eligibility": {"all": [{"field": "child_number", "op": "ge", "value": 2}, {"field": "child_sex", "op": "eq", "value": "girl"}, {"field": "birth_outcome", "op": "eq", "value": "live"}]},
+         "documents": ["birth certificate", "child immunization record (first cycle)"],
+         "depends_on": ["birth_registration.register_birth"],
+         "note": "Single payment of Rs 6,000, only when the second child is a girl (effective 01.04.2022)."}
+      ]
+    },
+
+    {
+      "id": "jsy",
+      "name": "Janani Suraksha Yojana",
+      "name_hi": "जननी सुरक्षा योजना",
+      "authority": "Ministry of Health & Family Welfare (NHM, central)",
+      "category": "maternity_cash",
+      "confidence": "medium",
+      "source_urls": ["https://nhm.gov.in/"],
+      "eligibility": {"all": [
+        {"field": "delivery_type", "op": "in", "value": ["institutional_public", "institutional_private_empanelled"], "label": "institutional (facility) delivery"}
+      ]},
+      "benefit_components": [
+        {"id": "jsy_delivery_cash", "title": "JSY institutional delivery cash", "title_hi": "संस्थागत प्रसव नकद सहायता", "phase": "at_birth", "cash_inr": null,
+         "cash_table": {"rural_lps": 1400, "rural_hps": 700, "urban_lps": 1000, "urban_hps": 600}, "deadline_day": 7,
+         "eligibility": {"any": [
+            {"field": "state_lps", "op": "eq", "value": true, "label": "Low-Performing State (all mothers eligible)"},
+            {"field": "bpl", "op": "eq", "value": true, "label": "BPL household"},
+            {"field": "category", "op": "in", "value": ["sc", "st"], "label": "SC/ST mother"}
+         ]},
+         "documents": ["JSY/MCP card", "discharge slip", "Aadhaar-linked bank account"], "depends_on": [],
+         "note": "Amount depends on rural/urban and LPS/HPS state. In High-Performing states only BPL/SC/ST mothers qualify — verify locally.",
+         "needs_verification": true}
+      ]
+    },
+
+    {
+      "id": "jssk",
+      "name": "Janani Shishu Suraksha Karyakram",
+      "name_hi": "जननी शिशु सुरक्षा कार्यक्रम",
+      "authority": "Ministry of Health & Family Welfare (NHM, central)",
+      "category": "in_kind_entitlement",
+      "confidence": "high",
+      "source_urls": ["https://nhm.gov.in/"],
+      "eligibility": {"all": [
+        {"field": "delivery_type", "op": "eq", "value": "institutional_public", "label": "delivery at a public health facility"}
+      ]},
+      "benefit_components": [
+        {"id": "jssk_free_delivery", "title": "Free delivery, drugs, diagnostics, diet & transport", "title_hi": "नि:शुल्क प्रसव, दवाएँ, जाँच, आहार व परिवहन", "phase": "at_birth", "cash_inr": 0, "deadline_day": 0,
+         "eligibility": {"all": []}, "documents": [], "depends_on": [],
+         "note": "Entitlement (no out-of-pocket), incl. free C-section, blood and drop-back transport. If the family was charged, raise a grievance."},
+        {"id": "jssk_sick_newborn", "title": "Free SNCU care for a sick / premature / low-weight newborn", "title_hi": "बीमार/समयपूर्व नवजात की नि:शुल्क SNCU देखभाल", "phase": "post_birth", "cash_inr": 0, "deadline_day": null,
+         "eligibility": {"any": [{"field": "premature", "op": "eq", "value": true}, {"field": "low_birth_weight", "op": "eq", "value": true}, {"field": "child_disability", "op": "eq", "value": true}]},
+         "documents": [], "depends_on": [],
+         "note": "Free treatment incl. Sick Newborn Care Unit. Premature/low-birth-weight babies also get extra ASHA HBNC visits."},
+        {"id": "jssk_free_newborn_care", "title": "Free treatment for sick infant (up to 1 year)", "title_hi": "बीमार शिशु का नि:शुल्क उपचार (1 वर्ष तक)", "phase": "post_birth", "cash_inr": 0, "deadline_day": null,
+         "eligibility": {"all": [{"field": "birth_outcome", "op": "eq", "value": "live"}]}, "documents": [], "depends_on": [],
+         "note": "Free treatment of sick infants at public facilities through the first year."}
+      ]
+    },
+
+    {
+      "id": "birth_registration",
+      "name": "Birth Registration",
+      "name_hi": "जन्म पंजीकरण",
+      "authority": "Registrar of Births & Deaths (statutory, RBD Act 1969)",
+      "category": "foundational_document",
+      "confidence": "high",
+      "source_urls": ["https://crsorgi.gov.in/"],
+      "eligibility": {"all": [{"field": "birth_outcome", "op": "in", "value": ["live", "neonatal_death"]}]},
+      "benefit_components": [
+        {"id": "register_birth", "title": "Register the birth (free within 21 days)", "title_hi": "जन्म पंजीकरण (21 दिनों के भीतर नि:शुल्क)", "phase": "post_birth", "cash_inr": 0, "deadline_day": 21,
+         "eligibility": {"all": []}, "documents": ["hospital discharge/birth proof", "parents' Aadhaar", "address proof"], "depends_on": [],
+         "note": "GATEWAY DOCUMENT. Free within 21 days; after that, late fees apply. Unlocks the PMMVY 3rd installment and most downstream schemes.",
+         "is_gateway": true}
+      ]
+    },
+
+    {
+      "id": "death_registration",
+      "name": "Death / Stillbirth Registration",
+      "name_hi": "मृत्यु / मृत-जन्म पंजीकरण",
+      "authority": "Registrar of Births & Deaths (statutory, RBD Act 1969)",
+      "category": "foundational_document",
+      "confidence": "high",
+      "source_urls": ["https://crsorgi.gov.in/"],
+      "eligibility": {"any": [
+        {"field": "birth_outcome", "op": "in", "value": ["stillbirth", "neonatal_death"]},
+        {"field": "maternal_outcome", "op": "eq", "value": "deceased"}
+      ]},
+      "benefit_components": [
+        {"id": "register_death", "title": "Register the death / stillbirth (free within 21 days)", "title_hi": "मृत्यु/मृत-जन्म पंजीकरण (21 दिनों के भीतर नि:शुल्क)", "phase": "post_birth", "cash_inr": 0, "deadline_day": 21,
+         "eligibility": {"all": []}, "documents": ["medical certificate of cause of death", "ID proof"], "depends_on": [],
+         "note": "Required document, free within 21 days. Needed for any survivor benefit (insurance, pension, NFBS).",
+         "sensitive": true, "is_gateway": true}
+      ]
+    },
+
+    {
+      "id": "immunization_uip",
+      "name": "Universal Immunization Programme",
+      "name_hi": "सार्वत्रिक टीकाकरण कार्यक्रम",
+      "authority": "Ministry of Health & Family Welfare (central)",
+      "category": "child_health",
+      "confidence": "high",
+      "source_urls": ["https://nhm.gov.in/"],
+      "eligibility": {"all": [{"field": "birth_outcome", "op": "eq", "value": "live"}]},
+      "benefit_components": [
+        {"id": "birth_doses", "title": "Birth-dose vaccines (BCG, OPV-0, Hepatitis-B-0)", "title_hi": "जन्म के समय टीके (बीसीजी, ओपीवी-0, हेप-बी-0)", "phase": "at_birth", "cash_inr": 0, "deadline_day": 14,
+         "eligibility": {"all": []}, "documents": ["immunization / MCP card"], "depends_on": [],
+         "note": "Given at/near birth; part of the first cycle that unlocks the PMMVY 3rd installment. For twins, give to each baby."},
+        {"id": "six_week_doses", "title": "6-week vaccines (Pentavalent-1, OPV-1, Rota-1, PCV-1)", "title_hi": "6 सप्ताह के टीके", "phase": "post_birth", "cash_inr": 0, "deadline_day": 42,
+         "eligibility": {"all": []}, "documents": ["immunization / MCP card"], "depends_on": [],
+         "note": "Due around 6 weeks (~day 42)."}
+      ]
+    },
+
+    {
+      "id": "rbsk",
+      "name": "Rashtriya Bal Swasthya Karyakram",
+      "name_hi": "राष्ट्रीय बाल स्वास्थ्य कार्यक्रम",
+      "authority": "Ministry of Health & Family Welfare (NHM, central)",
+      "category": "child_health",
+      "confidence": "medium",
+      "source_urls": ["https://nhm.gov.in/"],
+      "eligibility": {"all": [{"field": "birth_outcome", "op": "eq", "value": "live"}]},
+      "benefit_components": [
+        {"id": "rbsk_screening", "title": "Free child health screening & treatment (birth defects, deficiencies)", "title_hi": "नि:शुल्क बाल स्वास्थ्य जाँच व उपचार", "phase": "post_birth", "cash_inr": 0, "deadline_day": null,
+         "eligibility": {"all": []}, "documents": [], "depends_on": [],
+         "note": "Screening for the 4 Ds (defects at birth, deficiencies, disease, developmental delay) with free tertiary treatment, 0–6 years."}
+      ]
+    },
+
+    {
+      "id": "nfbs",
+      "name": "National Family Benefit Scheme",
+      "name_hi": "राष्ट्रीय परिवार लाभ योजना",
+      "authority": "Ministry of Rural Development (NSAP, central)",
+      "category": "survivor_benefit",
+      "confidence": "medium",
+      "source_urls": ["https://nsap.nic.in/"],
+      "eligibility": {"all": [
+        {"field": "maternal_outcome", "op": "eq", "value": "deceased", "label": "death of the mother"},
+        {"field": "bpl", "op": "eq", "value": true, "label": "BPL household"}
+      ]},
+      "benefit_components": [
+        {"id": "nfbs_lumpsum", "title": "One-time family benefit on death of a breadwinner", "title_hi": "मुखिया की मृत्यु पर एकमुश्त सहायता", "phase": "post_birth", "cash_inr": 20000, "deadline_day": null,
+         "eligibility": {"all": []}, "documents": ["death certificate", "BPL proof", "bank account of surviving head"], "depends_on": ["death_registration.register_death"],
+         "note": "Rs 20,000 to a BPL family on death of the primary breadwinner (aged 18–60). Apply within the state's time limit.",
+         "sensitive": true, "needs_verification": true}
+      ]
+    },
+
+    {
+      "id": "disability_support",
+      "name": "Disability Support (UDID & schemes)",
+      "name_hi": "दिव्यांगता सहायता (UDID व योजनाएँ)",
+      "authority": "Dept. of Empowerment of Persons with Disabilities (central)",
+      "category": "pointer",
+      "confidence": "medium",
+      "source_urls": ["https://www.swavlambancard.gov.in/"],
+      "eligibility": {"any": [
+        {"field": "mother_disability", "op": "eq", "value": true},
+        {"field": "child_disability", "op": "eq", "value": true}
+      ]},
+      "benefit_components": [
+        {"id": "udid_pointer", "title": "Get a UDID (disability) certificate — unlocks pensions & schemes", "title_hi": "UDID प्रमाणपत्र बनवाएँ — पेंशन व योजनाओं हेतु", "phase": "post_birth", "cash_inr": 0, "deadline_day": null,
+         "eligibility": {"all": []}, "documents": ["medical disability assessment"], "depends_on": [],
+         "note": "A UDID certificate is the gateway to disability pension, aids/appliances and reserved schemes. Run the dedicated disability flow next."}
+      ]
+    },
+
+    {
+      "id": "tn_muthulakshmi",
+      "name": "Dr. Muthulakshmi Reddy Maternity Benefit (Tamil Nadu)",
+      "name_hi": "டாக்டர் முத்துலட்சுமி ரெட்டி மகப்பேறு உதவித் திட்டம்",
+      "authority": "Government of Tamil Nadu (state)",
+      "category": "maternity_cash_state",
+      "confidence": "low",
+      "source_urls": [],
+      "eligibility": {"all": [
+        {"field": "state", "op": "eq", "value": "TN", "label": "resident of Tamil Nadu"},
+        {"field": "child_number", "op": "le", "value": 2, "label": "up to two children"}
+      ]},
+      "benefit_components": [
+        {"id": "tn_mb_cash", "title": "TN maternity benefit (state top-up)", "title_hi": "மாநில மகப்பேறு உதவி", "phase": "post_birth", "cash_inr": 18000, "deadline_day": 270,
+         "eligibility": {"all": []}, "documents": ["income certificate", "ration card", "bank account", "birth certificate"], "depends_on": ["birth_registration.register_birth"],
+         "note": "EXAMPLE state scheme. Amount/conditions must be verified against the current TN GO.", "needs_verification": true}
+      ]
+    },
+
+    {
+      "id": "or_mamata",
+      "name": "MAMATA (Odisha)",
+      "name_hi": "ममता योजना (ओडिशा)",
+      "authority": "Government of Odisha (state)",
+      "category": "maternity_cash_state",
+      "confidence": "low",
+      "source_urls": [],
+      "eligibility": {"all": [
+        {"field": "state", "op": "eq", "value": "OR", "label": "resident of Odisha"}
+      ]},
+      "benefit_components": [
+        {"id": "or_mamata_cash", "title": "MAMATA conditional maternity cash", "title_hi": "ममता सशर्त नकद सहायता", "phase": "post_birth", "cash_inr": 5000, "deadline_day": 270,
+         "eligibility": {"all": []}, "documents": ["MCP card", "bank account", "birth certificate"], "depends_on": ["birth_registration.register_birth"],
+         "note": "EXAMPLE state scheme (conditional cash across pregnancy/infancy). Verify current amount/conditions.", "needs_verification": true}
+      ]
+    },
+
+    {
+      "id": "mp_ladli_laxmi",
+      "name": "Ladli Laxmi (Madhya Pradesh)",
+      "name_hi": "लाडली लक्ष्मी योजना (मध्य प्रदेश)",
+      "authority": "Government of Madhya Pradesh (state)",
+      "category": "girl_child_state",
+      "confidence": "low",
+      "source_urls": [],
+      "eligibility": {"all": [
+        {"field": "state", "op": "eq", "value": "MP", "label": "resident of Madhya Pradesh"},
+        {"field": "child_sex", "op": "eq", "value": "girl", "label": "girl child"},
+        {"field": "birth_outcome", "op": "eq", "value": "live"}
+      ]},
+      "benefit_components": [
+        {"id": "mp_ll_savings", "title": "Girl-child savings certificate (matures over schooling)", "title_hi": "बालिका हेतु बचत प्रमाणपत्र", "phase": "post_birth", "cash_inr": 0, "deadline_day": null,
+         "eligibility": {"all": []}, "documents": ["birth certificate", "parents' Aadhaar", "income proof"], "depends_on": ["birth_registration.register_birth"],
+         "note": "EXAMPLE state scheme: long-term girl-child savings paying out across school milestones, not immediate cash. Verify conditions.", "needs_verification": true}
+      ]
+    },
+
+    {
+      "id": "wb_state_maternity",
+      "name": "West Bengal state maternity support",
+      "name_hi": "পশ্চিমবঙ্গ রাজ্য মাতৃত্ব সহায়তা",
+      "authority": "Government of West Bengal (state)",
+      "category": "maternity_cash_state",
+      "confidence": "low",
+      "source_urls": [],
+      "eligibility": {"all": [
+        {"field": "state", "op": "eq", "value": "WB", "label": "resident of West Bengal"}
+      ]},
+      "benefit_components": [
+        {"id": "wb_maternity_pointer", "title": "Apply via West Bengal's own scheme (state does not run PMMVY)", "title_hi": "রাজ্যের নিজস্ব প্রকল্পে আবেদন করুন", "phase": "post_birth", "cash_inr": 0, "deadline_day": null,
+         "eligibility": {"all": []}, "documents": [], "depends_on": [],
+         "note": "EXAMPLE: West Bengal does not implement several central cash schemes (incl. PMMVY) and runs its own. Route the mother to the current state scheme; verify which applies.", "needs_verification": true}
+      ]
+    }
+  ]
+}

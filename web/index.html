@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sahej — benefit co-pilot for ASHA workers</title>
+<style>
+  :root{
+    --bg:#f6f4ef; --panel:#fff; --ink:#1d2421; --muted:#6b7670; --line:#e4e0d7;
+    --brand:#0f7b6c; --brand-soft:#e2f1ee; --gold:#b9821f; --gold-soft:#f7eed9;
+    --rail:#cfd8d4; --danger:#a4453a; --danger-soft:#f5e2df; --orange:#c2701c;
+    --orange-soft:#f8ead7; --info:#2f6dab; --info-soft:#e2ecf6; --purple:#6b5ca8;
+    --purple-soft:#ece9f5; --ok:#1f7a52;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.45}
+  header{background:var(--brand);color:#fff;padding:14px 20px;display:flex;align-items:center;
+    justify-content:space-between;gap:12px;flex-wrap:wrap}
+  header.sensitive{background:#4a5568}
+  header h1{margin:0;font-size:19px}
+  header p{margin:2px 0 0;font-size:12.5px;opacity:.9;max-width:560px}
+  .hbtns{display:flex;gap:8px}
+  .hbtns button{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.35);
+    padding:6px 11px;border-radius:8px;font-size:12.5px;cursor:pointer}
+  .hbtns button:hover{background:rgba(255,255,255,.28)}
+  .wrap{max-width:1180px;margin:0 auto;padding:18px;display:grid;grid-template-columns:300px 360px 1fr;gap:16px}
+  @media(max-width:1080px){.wrap{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .panel h2{margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+  label{display:block;font-size:12px;color:var(--muted);margin:9px 0 3px}
+  select,input{width:100%;padding:8px 9px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;background:#fff;color:var(--ink)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .check{display:flex;align-items:center;gap:7px;margin-top:9px;font-size:12.5px}
+  .check input{width:auto}
+  details{margin-top:10px;border-top:1px dashed var(--line);padding-top:6px}
+  summary{cursor:pointer;font-size:12.5px;color:var(--brand);font-weight:600}
+  .btn{width:100%;margin-top:12px;background:var(--brand);color:#fff;border:none;padding:10px;
+    border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer}
+  .btn.sec{background:#fff;color:var(--brand);border:1px solid var(--brand)}
+  /* caseload */
+  .case{display:flex;justify-content:space-between;align-items:center;padding:9px 10px;border:1px solid var(--line);
+    border-radius:10px;margin-bottom:7px;cursor:pointer;font-size:13px}
+  .case:hover{border-color:var(--brand)}
+  .case.active{background:var(--brand-soft);border-color:var(--brand)}
+  .case small{color:var(--muted);display:block;font-size:11px}
+  .case .del{color:var(--danger);background:none;border:none;cursor:pointer;font-size:13px;padding:2px 5px}
+  .empty{font-size:12.5px;color:var(--muted);padding:6px 2px}
+  /* results */
+  .summary{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .stat{flex:1;min-width:130px;background:var(--brand-soft);border-radius:12px;padding:13px}
+  .stat .big{font-size:24px;font-weight:700;color:var(--brand)}
+  .stat .lbl{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .profile-line{font-size:12.5px;color:var(--muted);margin-bottom:12px}
+  .alert{border-radius:10px;padding:9px 12px;margin-bottom:8px;font-size:12.5px;border:1px solid}
+  .a-blocker,.a-overdue{background:var(--danger-soft);border-color:var(--danger);color:var(--danger)}
+  .a-urgent{background:var(--orange-soft);border-color:var(--orange);color:var(--orange)}
+  .a-warn{background:var(--info-soft);border-color:var(--info);color:var(--info)}
+  .a-sensitive{background:var(--purple-soft);border-color:var(--purple);color:var(--purple)}
+  .visit{position:relative;padding:0 0 2px 24px;margin-bottom:16px}
+  .visit::before{content:"";position:absolute;left:6px;top:20px;bottom:-12px;width:2px;background:var(--rail)}
+  .visit:last-child::before{display:none}
+  .dot{position:absolute;left:0;top:3px;width:15px;height:15px;border-radius:50%;background:var(--brand);
+    border:3px solid var(--panel);box-shadow:0 0 0 1px var(--rail)}
+  .visit h3{margin:0 0 7px;font-size:13.5px}
+  .card{border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:7px;background:#fff;display:flex;gap:10px;align-items:flex-start}
+  .card.done{opacity:.62}
+  .card .cb{flex:0 0 auto;width:15px;height:15px;margin-top:3px}
+  .card .body{flex:1}
+  .card .top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .card .title{font-weight:600;font-size:13.5px}
+  .card.done .title{text-decoration:line-through}
+  .card .hi{font-size:12px;color:var(--muted);margin-top:1px}
+  .card .scheme{font-size:11.5px;color:var(--muted);margin-top:4px}
+  .cash{white-space:nowrap;font-weight:700;color:var(--brand);font-size:13.5px}
+  .meta2{margin-top:6px;font-size:11.5px;color:var(--muted)}
+  .meta2 b{color:var(--ink)}
+  .badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;
+    padding:2px 6px;border-radius:20px;margin-right:5px}
+  .b-gate{background:var(--gold-soft);color:var(--gold)}
+  .b-verify{background:var(--danger-soft);color:var(--danger)}
+  .b-overdue{background:var(--danger-soft);color:var(--danger)}
+  .b-urgent{background:var(--orange-soft);color:var(--orange)}
+  .b-blocked{background:var(--gold-soft);color:var(--gold)}
+  .b-done{background:var(--brand-soft);color:var(--ok)}
+  .b-deadline{background:var(--brand-soft);color:var(--brand)}
+  .docs li{font-size:12.5px;margin:3px 0}
+  .docs small{color:var(--muted)}
+  .none{font-size:12.5px;color:var(--muted);background:#faf8f3;border:1px dashed var(--line);border-radius:11px;padding:9px 11px;margin-top:8px}
+  .none b{color:var(--ink)}
+  footer{max-width:1180px;margin:0 auto;padding:4px 20px 28px;font-size:11px;color:var(--muted)}
+  @media print{.panel.form,.panel.case-panel,header .hbtns{display:none}.wrap{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header id="hdr">
+  <div>
+    <h1 id="t-title">Sahej · सहज</h1>
+    <p id="t-tag">A benefit co-pilot for the ASHA worker — every rupee a new mother is owed, on the days you already visit.</p>
+  </div>
+  <div class="hbtns">
+    <button id="langBtn">हिन्दी</button>
+    <button id="shareBtn">Share</button>
+    <button id="printBtn">Print</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- CASELOAD -->
+  <div class="panel case-panel">
+    <h2 id="t-caseload">My caseload</h2>
+    <div id="caseList"></div>
+    <button class="btn sec" id="newBtn">+ New mother</button>
+  </div>
+
+  <!-- FORM -->
+  <form class="panel form" id="form">
+    <h2 id="t-mother">This mother</h2>
+    <label id="l-name">Name / ID</label>
+    <input id="name" placeholder="e.g. Sunita (ward 4)">
+    <label id="l-state">Home state / UT</label>
+    <select id="state"></select>
+    <div class="row">
+      <div><label id="l-area">Area</label><select id="area"></select></div>
+      <div><label id="l-delivery">Delivery</label><select id="delivery_type"></select></div>
+    </div>
+    <div class="row">
+      <div><label id="l-childnum">Child number</label><select id="child_number"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+      <div><label id="l-childsex">Child sex</label><select id="child_sex"></select></div>
+    </div>
+    <div class="row">
+      <div><label id="l-age">Mother's age</label><input type="number" id="mother_age_years" value="24" min="13" max="55"></div>
+      <div><label id="l-birth">Birth date</label><input type="date" id="birth_date" value="2026-06-01"></div>
+    </div>
+    <div class="row">
+      <div><label id="l-outcome">Birth outcome</label><select id="birth_outcome"></select></div>
+      <div><label id="l-moutcome">Mother</label><select id="maternal_outcome"></select></div>
+    </div>
+
+    <details>
+      <summary id="t-more">More details (category, income, risk…)</summary>
+      <div class="row">
+        <div><label id="l-cat">Social category</label><select id="category"></select></div>
+        <div><label id="l-dstate">Delivered in (if migrant)</label><select id="delivery_state"></select></div>
+      </div>
+      <div class="check"><input type="checkbox" id="bpl"><label for="bpl" id="l-bpl" style="margin:0">BPL household</label></div>
+      <div class="check"><input type="checkbox" id="premature"><label for="premature" id="l-prem" style="margin:0">Premature</label></div>
+      <div class="check"><input type="checkbox" id="low_birth_weight"><label for="low_birth_weight" id="l-lbw" style="margin:0">Low birth weight</label></div>
+      <div class="check"><input type="checkbox" id="single_mother"><label for="single_mother" id="l-single" style="margin:0">Single / widowed mother</label></div>
+      <div class="check"><input type="checkbox" id="mother_disability"><label for="mother_disability" id="l-mdis" style="margin:0">Mother has a disability</label></div>
+      <div class="check"><input type="checkbox" id="child_disability"><label for="child_disability" id="l-cdis" style="margin:0">Child has a disability</label></div>
+      <div class="check"><input type="checkbox" id="govt_employee"><label for="govt_employee" id="l-govt" style="margin:0">Regular govt / PSU employee</label></div>
+      <div class="check"><input type="checkbox" id="has_aadhaar" checked><label for="has_aadhaar" id="l-aadhaar" style="margin:0">Has Aadhaar</label></div>
+      <div class="check"><input type="checkbox" id="has_bank_account" checked><label for="has_bank_account" id="l-bank" style="margin:0">Has Aadhaar-linked bank account</label></div>
+    </details>
+
+    <button type="button" class="btn" id="saveBtn">Save to caseload</button>
+  </form>
+
+  <!-- RESULTS -->
+  <div class="panel" id="results"><p class="profile-line">Loading…</p></div>
+</div>
+<footer id="kbnote"></footer>
+
+<script>
+const FIELDS = ["state","delivery_state","area","delivery_type","child_number","child_sex",
+  "mother_age_years","birth_date","birth_outcome","maternal_outcome","category"];
+const BOOLS = ["bpl","premature","low_birth_weight","single_mother","mother_disability",
+  "child_disability","govt_employee","has_aadhaar","has_bank_account"];
+
+const OPT_LABELS = {
+  delivery_type:{institutional_public:"Public facility",institutional_private_empanelled:"Private (empanelled)",institutional_private:"Private (other)",home:"At home"},
+  child_sex:{girl:"Girl",boy:"Boy"},
+  category:{general:"General",obc:"OBC",sc:"SC",st:"ST"},
+  birth_outcome:{live:"Live birth",stillbirth:"Stillbirth",neonatal_death:"Newborn died"},
+  maternal_outcome:{alive:"Mother alive",deceased:"Mother died"},
+  area:{rural:"Rural",urban:"Urban"},
+};
+const I18N = {
+  en:{title:"Sahej · सहज",tag:"A benefit co-pilot for the ASHA worker — every rupee a new mother is owed, on the days you already visit.",
+    caseload:"My caseload",mother:"This mother",name:"Name / ID",state:"Home state / UT",area:"Area",delivery:"Delivery",
+    childnum:"Child number",childsex:"Child sex",age:"Mother's age",birth:"Birth date",outcome:"Birth outcome",moutcome:"Mother",
+    more:"More details (category, income, risk…)",cat:"Social category",dstate:"Delivered in (if migrant)",bpl:"BPL household",
+    prem:"Premature",lbw:"Low birth weight",single:"Single / widowed mother",mdis:"Mother has a disability",cdis:"Child has a disability",
+    govt:"Regular govt / PSU employee",aadhaar:"Has Aadhaar",bank:"Has Aadhaar-linked bank account",save:"Save to caseload",
+    newm:"+ New mother",lang:"हिन्दी",remaining:"remaining cash for this mother",outstanding:"actions still to do",
+    docsH:"Documents to gather",notElig:"Not eligible here",nextAction:"Next action",done:"done"},
+  hi:{title:"सहज · Sahej",tag:"आशा कार्यकर्ता की सहायक — हर नई माँ का हक़, उन्हीं दिनों पर जब आप पहले से जाती हैं।",
+    caseload:"मेरी सूची",mother:"यह माँ",name:"नाम / पहचान",state:"राज्य / केंद्रशासित",area:"क्षेत्र",delivery:"प्रसव",
+    childnum:"संतान क्रमांक",childsex:"शिशु लिंग",age:"माँ की उम्र",birth:"जन्म तिथि",outcome:"जन्म परिणाम",moutcome:"माँ",
+    more:"और जानकारी (श्रेणी, आय, जोखिम…)",cat:"सामाजिक श्रेणी",dstate:"प्रसव कहाँ हुआ (प्रवासी)",bpl:"बीपीएल परिवार",
+    prem:"समय-पूर्व जन्म",lbw:"कम वज़न",single:"अकेली / विधवा माँ",mdis:"माँ दिव्यांग",cdis:"शिशु दिव्यांग",
+    govt:"सरकारी / पीएसयू कर्मचारी",aadhaar:"आधार है",bank:"आधार-लिंक बैंक खाता है",save:"सूची में सहेजें",
+    newm:"+ नई माँ",lang:"English",remaining:"इस माँ के लिए शेष राशि",outstanding:"शेष कार्य",
+    docsH:"आवश्यक दस्तावेज़",notElig:"यहाँ अपात्र",nextAction:"अगला कार्य",done:"पूर्ण"},
+};
+
+let META=null, lang="en";
+let current = newMother();
+let caseload = load();
+
+function newMother(){return {id:null,name:"",profile:{state:"BR",area:"rural",delivery_type:"institutional_public",
+  child_number:1,child_sex:"girl",mother_age_years:24,birth_date:"2026-06-01",birth_outcome:"live",maternal_outcome:"alive",
+  category:"general",delivery_state:""},bools:{has_aadhaar:true,has_bank_account:true},claimed:[]};}
+function load(){try{return JSON.parse(localStorage.getItem("sahej_caseload")||"[]")}catch(e){return[]}}
+function persist(){localStorage.setItem("sahej_caseload",JSON.stringify(caseload));}
+function rupees(n){return "₹"+Number(n).toLocaleString("en-IN");}
+function L(k){return (I18N[lang]||I18N.en)[k];}
+function optLabel(field,val){return (OPT_LABELS[field]&&OPT_LABELS[field][val])||val;}
+
+function fillSelect(el,values,field){el.innerHTML=values.map(v=>`<option value="${v}">${optLabel(field,v)}</option>`).join("");}
+
+async function init(){
+  META = await (await fetch("/api/meta")).json();
+  const states = META.states;
+  const stateOpts = states.map(s=>`<option value="${s.code}">${s.name}${s.lps?" (LPS)":""}</option>`).join("");
+  document.getElementById("state").innerHTML = stateOpts;
+  document.getElementById("delivery_state").innerHTML = `<option value="">— same as home —</option>`+stateOpts;
+  fillSelect(document.getElementById("area"),META.options.area,"area");
+  fillSelect(document.getElementById("delivery_type"),META.options.delivery_type,"delivery_type");
+  fillSelect(document.getElementById("child_sex"),META.options.child_sex,"child_sex");
+  fillSelect(document.getElementById("birth_outcome"),META.options.birth_outcome,"birth_outcome");
+  fillSelect(document.getElementById("maternal_outcome"),META.options.maternal_outcome,"maternal_outcome");
+  fillSelect(document.getElementById("category"),META.options.category,"category");
+  applyLang(); loadIntoForm(); renderCaseload(); run();
+}
+
+function applyLang(){
+  document.getElementById("t-title").textContent=L("title");
+  document.getElementById("t-tag").textContent=L("tag");
+  document.getElementById("langBtn").textContent=L("lang");
+  const map={"t-caseload":"caseload","t-mother":"mother","l-name":"name","l-state":"state","l-area":"area","l-delivery":"delivery",
+    "l-childnum":"childnum","l-childsex":"childsex","l-age":"age","l-birth":"birth","l-outcome":"outcome","l-moutcome":"moutcome",
+    "t-more":"more","l-cat":"cat","l-dstate":"dstate","l-bpl":"bpl","l-prem":"prem","l-lbw":"lbw","l-single":"single",
+    "l-mdis":"mdis","l-cdis":"cdis","l-govt":"govt","l-aadhaar":"aadhaar","l-bank":"bank"};
+  for(const id in map){const el=document.getElementById(id);if(el)el.textContent=L(map[id]);}
+  document.getElementById("saveBtn").textContent=L("save");
+  document.getElementById("newBtn").textContent=L("newm");
+}
+
+function loadIntoForm(){
+  const p=current.profile, b=current.bools;
+  document.getElementById("name").value=current.name||"";
+  FIELDS.forEach(f=>{const el=document.getElementById(f);if(el&&p[f]!==undefined)el.value=p[f];});
+  BOOLS.forEach(f=>{const el=document.getElementById(f);if(el)el.checked=!!b[f];});
+}
+function formToCurrent(){
+  current.name=document.getElementById("name").value;
+  FIELDS.forEach(f=>{const el=document.getElementById(f);if(el)current.profile[f]=el.value;});
+  current.bools={}; BOOLS.forEach(f=>{current.bools[f]=document.getElementById(f).checked;});
+}
+
+function buildQuery(){
+  const q=new URLSearchParams();
+  for(const k in current.profile){if(current.profile[k]!=="")q.set(k,current.profile[k]);}
+  for(const k in current.bools){q.set(k,current.bools[k]?"true":"false");}
+  if(current.claimed.length)q.set("claimed",current.claimed.join(","));
+  return q.toString();
+}
+
+async function run(){
+  try{
+    const r=await (await fetch("/api/resolve?"+buildQuery())).json();
+    window._last=r; render(r);
+  }catch(e){document.getElementById("results").innerHTML='<p class="profile-line">Engine unreachable. Run <b>python3 serve.py</b> and reload.</p>';}
+}
+
+function badge(it){
+  let b=[];
+  if(it.done)b.push('<span class="badge b-done">'+L("done")+'</span>');
+  else if(it.status==="overdue")b.push('<span class="badge b-overdue">overdue</span>');
+  else if(it.status==="urgent")b.push('<span class="badge b-urgent">urgent</span>');
+  else if(it.status==="blocked")b.push('<span class="badge b-blocked">blocked</span>');
+  if(it.is_gateway)b.push('<span class="badge b-gate">gateway</span>');
+  if(it.needs_verification)b.push('<span class="badge b-verify">verify</span>');
+  if(it.deadline_day!=null&&!it.done)b.push('<span class="badge b-deadline">due day '+it.deadline_day+'</span>');
+  return b.join("");
+}
+function cardHTML(it){
+  const title = (lang==="hi"&&it.title_hi)?it.title_hi:it.title;
+  const sub = (lang==="hi"&&it.title_hi)?it.title:(it.title_hi||"");
+  const cash=it.cash_inr?'<div class="cash">'+rupees(it.cash_inr)+'</div>':'';
+  const blk=it.blocked_by.length?'<div class="meta2">Do first: <b>'+it.blocked_by.join(", ")+'</b></div>':'';
+  const docs=it.documents.length?'<div class="meta2">Docs: '+it.documents.join(", ")+'</div>':'';
+  const note=it.note?'<div class="meta2">'+it.note+'</div>':'';
+  return '<div class="card '+(it.done?'done':'')+'">'
+    +'<input class="cb" type="checkbox" data-cid="'+it.component_id+'" '+(it.done?'checked':'')+'>'
+    +'<div class="body"><div class="top"><div><div class="title">'+badge(it)+title+'</div>'
+    +(sub?'<div class="hi">'+sub+'</div>':'')
+    +'<div class="scheme">'+it.scheme_name+'</div></div>'+cash+'</div>'+blk+docs+note+'</div></div>';
+}
+
+function render(r){
+  const sens=r.summary.sensitive_mode;
+  document.getElementById("hdr").className=sens?"sensitive":"";
+  let h='<div class="summary">'
+    +'<div class="stat"><div class="big">'+rupees(r.summary.remaining_cash_inr)+'</div><div class="lbl">'+L("remaining")+'</div></div>'
+    +'<div class="stat"><div class="big">'+r.summary.outstanding_count+'</div><div class="lbl">'+L("outstanding")+'</div></div></div>';
+  const p=r.profile;
+  h+='<div class="profile-line">'+(current.name?'<b>'+current.name+'</b> · ':'')+p.state_name+(p.state_lps?' (LPS)':' (HPS)')
+    +' · '+optLabel("area",p.area)+' · '+optLabel("delivery_type",p.delivery_type)+' · '+optLabel("birth_outcome",p.birth_outcome)
+    +' · born '+p.birth_date+' (day '+p.days_since_birth+')</div>';
+
+  r.alerts.forEach(a=>{h+='<div class="alert a-'+a.level+'">'+a.text+'</div>';});
+  if(r.next_action){const n=r.next_action;h+='<div class="alert a-warn"><b>'+L("nextAction")+':</b> '+n.title
+    +(n.days_remaining!=null?' — '+(n.days_remaining<0?Math.abs(n.days_remaining)+' days overdue':'in '+n.days_remaining+' days'):'')+'</div>';}
+
+  const order=[0,...r.visit_days,"ongoing"];
+  const vlabel=k=>k===0?"At delivery / first contact":k==="ongoing"?"Ongoing — confirm it was claimed":"ASHA home visit · day "+k;
+  order.forEach(k=>{const items=r.by_asha_visit[k];if(items&&items.length){
+    h+='<div class="visit"><div class="dot"></div><h3>'+vlabel(k)+'</h3>'+items.map(cardHTML).join("")+'</div>';}});
+
+  if(r.documents.length){h+='<h2 style="margin-top:14px">'+L("docsH")+'</h2><ul class="docs">'
+    +r.documents.map(d=>'<li>'+d.document+' <small>('+d.needed_for.join(", ")+')</small></li>').join("")+'</ul>';}
+  if(r.not_eligible.length){h+='<div class="none"><b>'+L("notElig")+':</b> '
+    +r.not_eligible.map(n=>n.name+' — '+n.reason).join(' · ')+'</div>';}
+  document.getElementById("results").innerHTML=h;
+
+  document.querySelectorAll(".cb").forEach(cb=>cb.addEventListener("change",e=>toggleClaim(e.target.dataset.cid,e.target.checked)));
+  document.getElementById("kbnote").textContent="Knowledge base v"+r.kb_version+" ("+r.kb_as_of+"). "
+    +"Demo data — rules marked “verify” must be confirmed against current government orders. Not medical or legal advice.";
+}
+
+function toggleClaim(cid,on){
+  current.claimed=current.claimed.filter(x=>x!==cid);
+  if(on)current.claimed.push(cid);
+  if(current.id)persist();
+  run();
+}
+
+function renderCaseload(){
+  const el=document.getElementById("caseList");
+  if(!caseload.length){el.innerHTML='<div class="empty">No mothers saved yet. Fill the form and Save.</div>';return;}
+  el.innerHTML=caseload.map(m=>{
+    const done=(m.claimed||[]).length;
+    return '<div class="case '+(m.id===current.id?'active':'')+'" data-id="'+m.id+'">'
+      +'<div>'+(m.name||"(unnamed)")+'<small>'+(m.profile.state||"")+' · '+done+' done</small></div>'
+      +'<button class="del" data-del="'+m.id+'">✕</button></div>';}).join("");
+  el.querySelectorAll(".case").forEach(c=>c.addEventListener("click",e=>{
+    if(e.target.dataset.del)return; selectMother(c.dataset.id);}));
+  el.querySelectorAll(".del").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();delMother(b.dataset.del);}));
+}
+function selectMother(id){const m=caseload.find(x=>x.id===id);if(!m)return;current=JSON.parse(JSON.stringify(m));loadIntoForm();renderCaseload();run();}
+function delMother(id){caseload=caseload.filter(x=>x.id!==id);persist();if(current.id===id){current=newMother();loadIntoForm();}renderCaseload();run();}
+function saveMother(){
+  formToCurrent();
+  if(!current.id)current.id="m"+Date.now();
+  const i=caseload.findIndex(x=>x.id===current.id);
+  const snap=JSON.parse(JSON.stringify(current));
+  if(i>=0)caseload[i]=snap;else caseload.push(snap);
+  persist();renderCaseload();
+}
+
+function shareText(){
+  const r=window._last;if(!r)return"";
+  let lines=["*Sahej — "+(current.name||"mother")+"*",
+    "Remaining: "+rupees(r.summary.remaining_cash_inr)+" · "+r.summary.outstanding_count+" actions"];
+  r.timeline.filter(it=>!it.done).forEach(it=>{
+    lines.push("• "+it.title+(it.cash_inr?" ("+rupees(it.cash_inr)+")":"")
+      +(it.deadline_day!=null?" — by day "+it.deadline_day:""));});
+  if(r.documents.length)lines.push("\nDocuments: "+r.documents.map(d=>d.document).join(", "));
+  return lines.join("\n");
+}
+
+// events
+document.getElementById("form").addEventListener("input",()=>{formToCurrent();if(current.id){const i=caseload.findIndex(x=>x.id===current.id);if(i>=0){caseload[i]=JSON.parse(JSON.stringify(current));persist();}}run();});
+document.getElementById("saveBtn").addEventListener("click",saveMother);
+document.getElementById("newBtn").addEventListener("click",()=>{current=newMother();loadIntoForm();renderCaseload();run();});
+document.getElementById("langBtn").addEventListener("click",()=>{lang=lang==="en"?"hi":"en";applyLang();run();});
+document.getElementById("printBtn").addEventListener("click",()=>window.print());
+document.getElementById("shareBtn").addEventListener("click",()=>{
+  const t=shareText();
+  if(navigator.share){navigator.share({text:t}).catch(()=>{});}
+  else{navigator.clipboard.writeText(t).then(()=>alert("Summary copied — paste into WhatsApp."));}
+});
+
+init();
+</script>
+</body>
+</html>
