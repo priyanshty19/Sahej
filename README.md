@@ -1,19 +1,50 @@
 # Sahej · सहज
 
-**A proactive benefit co-pilot for India's welfare last mile — starting with childbirth.**
+**Making sure no new mother in India misses the government help she's entitled to.**
 
-Every year, India leaves roughly **₹1 lakh crore (~$12B)** of welfare money unspent
-because eligible people never claim it. The benefits exist; the *navigation* is broken.
-Existing tools (myScheme, Haqdarshak, government chatbots) are **reactive** — you have
-to know to ask. Sahej is **proactive**: a *life event* automatically surfaces every
-benefit it unlocks, with deadlines, on a schedule that already runs.
+## What is this? (in plain words)
 
-## The core insight
+When a baby is born in India, the government offers the mother several things — cash
+payments, free hospital care, free vaccines for the baby, and more. But most families
+never receive all of it. Not because the money isn't there, but because:
 
-For childbirth, a trusted human is **already** at the mother's door on a fixed schedule:
-ASHA workers make **Home-Based Newborn Care visits on days 3, 7, 14, 21, 28 and 42**,
-paid ₹250/newborn. Those days line up with the benefit deadlines. Sahej rides that rail —
-each visit becomes a checklist of *exactly what this mother is owed today*.
+- nobody tells them which schemes they actually qualify for,
+- the forms and rules are confusing and scattered across departments, and
+- each benefit has a deadline that quietly passes.
+
+So thousands of crores meant for poor families go unused every year, and mothers go
+without help they had every right to.
+
+**Sahej fixes the navigation.** It's a simple tool for the local government health
+worker — the *ASHA* — who already visits every new mother at home. The worker enters a
+few basic details about the mother and baby, and Sahej instantly shows:
+
+- **every benefit she's owed**,
+- **how much money** each one is,
+- **which documents** she needs, and
+- **the date by which to claim each one** —
+
+laid out as a step-by-step checklist she can tick off over her routine visits, so nothing
+slips through the cracks.
+
+> **In one line:** Sahej turns a birth into a clear, dated checklist of every benefit the
+> mother is owed — so the help actually reaches her.
+
+### A quick example
+
+Enter *a first-time mother in Bihar who delivered at a government hospital*. Sahej replies:
+she's owed about **₹6,400** — claim the **₹1,400** delivery cash now, **register the birth
+by day 21** (that unlocks another **₹2,000**), get the baby's first vaccines, and so on.
+Change her state or situation and the answer updates automatically.
+
+## Why this approach works (the core insight)
+
+For childbirth, a trusted person is **already** at the mother's door on a fixed schedule:
+ASHA workers make home visits on **days 3, 7, 14, 21, 28 and 42** after birth (and are paid
+a small amount for each newborn they follow). Those visit days line up almost exactly with
+the benefit deadlines. So Sahej doesn't need to invent a new app habit or a new field
+force — it simply hands a smart checklist to someone who's already there, turning each
+visit into *"here's exactly what this mother is owed today."*
 
 ## What's in this MVP (v0.2)
 
