@@ -4,10 +4,12 @@ Tiny zero-dependency demo server for Sahej.
 
     python3 serve.py        # then open http://localhost:8000
 
-Serves the single-page UI and two endpoints backed by the same Python engine the
-CLI and tests use — one source of truth for the rules:
+Routes:
+    GET /                         -> landing page (the story)
+    GET /app                      -> the ASHA tool (single-page app)
     GET /api/meta                 -> states list + form option sets
     GET /api/resolve?<profile>    -> personalised benefit result
+All backed by the same Python engine the CLI and tests use — one source of truth.
 """
 import json
 import os
@@ -68,11 +70,17 @@ class Handler(BaseHTTPRequestHandler):
     def _json(self, code, obj):
         self._send(code, json.dumps(obj, ensure_ascii=False), "application/json; charset=utf-8")
 
+    def _serve_file(self, filename):
+        with open(os.path.join(HERE, "web", filename), "rb") as f:
+            self._send(200, f.read(), "text/html; charset=utf-8")
+
     def do_GET(self):
         parsed = urlparse(self.path)
-        if parsed.path in ("/", "/index.html"):
-            with open(os.path.join(HERE, "web", "index.html"), "rb") as f:
-                self._send(200, f.read(), "text/html; charset=utf-8")
+        if parsed.path in ("/", "/landing", "/landing.html"):
+            self._serve_file("landing.html")
+            return
+        if parsed.path in ("/app", "/app.html", "/index.html"):
+            self._serve_file("index.html")
             return
         if parsed.path == "/api/meta":
             self._json(200, meta())
