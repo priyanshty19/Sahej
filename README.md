@@ -4,9 +4,13 @@
 
 ## What is this? (in plain words)
 
-When a baby is born in India, the government offers the mother several things — cash
-payments, free hospital care, free vaccines for the baby, and more. But most families
-never receive all of it. Not because the money isn't there, but because:
+When a baby is born in India, the government offers the mother real support — cash
+payments, free hospital care, free vaccines for the baby, and more. Hospital delivery and
+child vaccination now reach most families. But the **cash** benefits — the part that most
+directly helps a poor household — largely don't arrive in full or on time: a state-wide
+study found only about **1 in 10** mothers enrolled in the main maternity-cash scheme
+received *all* of what they were owed ([see the charts below](#the-problem-in-three-charts)).
+Not because the money isn't there, but because:
 
 - nobody tells them which schemes they actually qualify for,
 - the forms and rules are confusing and scattered across departments, and
@@ -45,6 +49,29 @@ a small amount for each newborn they follow). Those visit days line up almost ex
 the benefit deadlines. So Sahej doesn't need to invent a new app habit or a new field
 force — it simply hands a smart checklist to someone who's already there, turning each
 visit into *"here's exactly what this mother is owed today."*
+
+## The problem, in three charts
+
+*Figures are from the [sources listed below](#evidence--sources); the charts are generated
+from that data by [`tools/make_charts.py`](tools/make_charts.py).*
+
+**Hospital access is largely solved — the cash is where families fall off.** Most mothers
+now deliver in a facility and most children are immunised; far fewer receive the full
+maternity **cash** they're entitled to.
+
+![Where the help leaks: share of mothers and children who actually receive each benefit](docs/charts/benefit_gap.svg)
+
+**The maternity-cash drop-off.** Of mothers enrolled in PMMVY, under half received the
+first installment and only about 1 in 10 received all three.
+
+![How far a PMMVY mother actually gets — 100% enrolled, 47.7% first installment, 10% all three](docs/charts/pmmvy_funnel.svg)
+
+**And when the cash does come, it arrives months late** — long after a newborn's costs have hit.
+
+![Average days to receive each PMMVY installment — 90, 113 and 137 days](docs/charts/payment_delays.svg)
+
+> The money is allocated — roughly **₹1 lakh crore** of welfare funds goes unspent every
+> year. The gap is awareness, timing and follow-through. **That's the gap Sahej closes.**
 
 ## What's in this MVP (v0.2)
 
@@ -90,6 +117,31 @@ This domain punishes hallucinated rules — a wrong "you qualify" costs a mother
 wage. Every rule carries `confidence`, `source_urls`, and a `needs_verification` flag,
 surfaced in the UI. **Amounts/conditions are research-grade drafts — confirm against
 current Government Orders before real use.** Not medical or legal advice.
+
+## Evidence & sources
+
+**Maternity cash reaches few mothers in full — and late**
+- PMMVY state-wide evaluation: only ~10% received all three installments; average 90 / 113 / 137-day delays — *BMC Pregnancy & Childbirth (2025)* — [PMC](https://pmc.ncbi.nlm.nih.gov/articles/PMC11910864/) · [Springer](https://link.springer.com/article/10.1186/s12884-025-07416-3)
+- PMMVY scale (40.8M mothers paid, ₹19,160 cr since 2017) — [PIB, 2025](https://www.pib.gov.in/PressReleasePage.aspx?PRID=2112761)
+- PMMVY scheme details & 270-day window — [UMANG / MoWCD](https://web.umang.gov.in/landing/scheme/detail/pradhan-mantri-matru-vandana-yojana_pmmvy.html) · [Vikaspedia](https://socialwelfare.vikaspedia.in/viewcontent/social-welfare/women-and-child-development/women-development-1/pradhan-mantri-matru-vandana-yojana)
+
+**Coverage of care & immunisation (the denominators in the first chart)**
+- Institutional delivery ~89%; full child immunisation ~77% — *NFHS-5* — [PIB](https://www.pib.gov.in/PressReleaseIframePage.aspx?PRID=1823047) · [PIB Phase-II](https://www.pib.gov.in/PressReleasePage.aspx?PRID=1774533)
+
+**The money is there — it goes unspent**
+- ~₹1 lakh crore of welfare funds unspent — [Policy Circle](https://www.policycircle.org/policy/unspent-welfare-funds-in-india/)
+- Underutilisation & awareness gaps (incl. PMMVY) — [Drishti IAS](https://www.drishtiias.com/daily-updates/daily-news-analysis/underutilization-of-funds-under-the-bocw-act-1996)
+
+**The delivery rail — why ASHA visits are the trigger**
+- Home-Based Newborn Care visit schedule (days 3/7/14/21/28/42; ₹250 per newborn) — [NHM HBNC](https://nhm.gov.in/index4.php?lang=1&level=0&linkid=491&lid=760)
+
+**Existing players — why a proactive, last-mile tool is the gap**
+- myScheme — the government's scheme **discovery** portal — [myscheme.gov.in](https://www.myscheme.gov.in/)
+- Haqdarshak — assisted-tech with human field agents — [Acumen case study](https://acumen.org/case-studies/haqdarshak/)
+
+> The PMMVY completion and delay figures come from a **state-wide study**, not a national
+> census — they indicate the size of the gap, not a precise national average. All figures
+> are research-grade; verify against current Government Orders before operational use.
 
 ## Beyond this MVP
 

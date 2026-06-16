@@ -1,0 +1,18 @@
+<svg width="720" height="318" viewBox="0 0 720 318" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+<rect x="1" y="1" width="718" height="316" rx="14" fill="#ffffff" stroke="#e4e0d7"/>
+<text x="32" y="40" font-size="19" font-weight="700" fill="#1d2421">How far a PMMVY mother actually gets</text>
+<text x="32" y="63" font-size="13" fill="#6b7670">Of mothers enrolled in the maternity-cash scheme, share reaching each stage</text>
+<text x="256" y="117" font-size="13" fill="#1d2421" text-anchor="end">Enrolled in PMMVY</text>
+<rect x="270" y="92" width="380" height="40" rx="6" fill="#e4e0d7" opacity="0.5"/>
+<rect x="270" y="92" width="380.0" height="40" rx="6" fill="#0f7b6c"/>
+<text x="662.0" y="117" font-size="15" font-weight="700" fill="#1d2421">100%</text>
+<text x="256" y="179" font-size="13" fill="#1d2421" text-anchor="end">Received 1st installment</text>
+<rect x="270" y="154" width="380" height="40" rx="6" fill="#e4e0d7" opacity="0.5"/>
+<rect x="270" y="154" width="181.3" height="40" rx="6" fill="#b9821f"/>
+<text x="463.3" y="179" font-size="15" font-weight="700" fill="#1d2421">47.7%</text>
+<text x="256" y="241" font-size="13" fill="#1d2421" text-anchor="end">Received all 3 installments</text>
+<rect x="270" y="216" width="380" height="40" rx="6" fill="#e4e0d7" opacity="0.5"/>
+<rect x="270" y="216" width="38.0" height="40" rx="6" fill="#a4453a"/>
+<text x="320.0" y="241" font-size="15" font-weight="700" fill="#1d2421">10%</text>
+<text x="32" y="300" font-size="10.5" fill="#6b7670">Source: PMMVY state-wide evaluation, BMC Pregnancy &amp; Childbirth (2025).</text>
+</svg>

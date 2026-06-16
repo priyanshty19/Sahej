@@ -1,0 +1,30 @@
+<svg width="720" height="400" viewBox="0 0 720 400" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+<rect x="1" y="1" width="718" height="398" rx="14" fill="#ffffff" stroke="#e4e0d7"/>
+<text x="32" y="40" font-size="19" font-weight="700" fill="#1d2421">Even when paid, the cash comes late</text>
+<text x="32" y="63" font-size="13" fill="#6b7670">Average days to receive each PMMVY installment after the claim</text>
+<line x1="70" y1="314.0" x2="692" y2="314.0" stroke="#e4e0d7"/>
+<text x="60" y="318.0" font-size="11" fill="#6b7670" text-anchor="end">0</text>
+<line x1="70" y1="268.4" x2="692" y2="268.4" stroke="#e4e0d7"/>
+<text x="60" y="272.4" font-size="11" fill="#6b7670" text-anchor="end">30</text>
+<line x1="70" y1="222.8" x2="692" y2="222.8" stroke="#e4e0d7"/>
+<text x="60" y="226.8" font-size="11" fill="#6b7670" text-anchor="end">60</text>
+<line x1="70" y1="177.2" x2="692" y2="177.2" stroke="#e4e0d7"/>
+<text x="60" y="181.2" font-size="11" fill="#6b7670" text-anchor="end">90</text>
+<line x1="70" y1="131.6" x2="692" y2="131.6" stroke="#e4e0d7"/>
+<text x="60" y="135.6" font-size="11" fill="#6b7670" text-anchor="end">120</text>
+<line x1="70" y1="86.0" x2="692" y2="86.0" stroke="#e4e0d7"/>
+<text x="60" y="90.0" font-size="11" fill="#6b7670" text-anchor="end">150</text>
+<rect x="121.8" y="177.2" width="103.7" height="136.8" rx="5" fill="#b9821f"/>
+<text x="173.7" y="168.2" font-size="15" font-weight="700" fill="#1d2421" text-anchor="middle">90 days</text>
+<text x="173.7" y="334.0" font-size="12" fill="#6b7670" text-anchor="middle">1st</text>
+<text x="173.7" y="349.0" font-size="12" fill="#6b7670" text-anchor="middle">installment</text>
+<rect x="329.2" y="142.2" width="103.7" height="171.8" rx="5" fill="#b9821f"/>
+<text x="381.0" y="133.2" font-size="15" font-weight="700" fill="#1d2421" text-anchor="middle">113 days</text>
+<text x="381.0" y="334.0" font-size="12" fill="#6b7670" text-anchor="middle">2nd</text>
+<text x="381.0" y="349.0" font-size="12" fill="#6b7670" text-anchor="middle">installment</text>
+<rect x="536.5" y="105.8" width="103.7" height="208.2" rx="5" fill="#a4453a"/>
+<text x="588.3" y="96.8" font-size="15" font-weight="700" fill="#1d2421" text-anchor="middle">137 days</text>
+<text x="588.3" y="334.0" font-size="12" fill="#6b7670" text-anchor="middle">3rd</text>
+<text x="588.3" y="349.0" font-size="12" fill="#6b7670" text-anchor="middle">installment</text>
+<text x="32" y="380" font-size="10.5" fill="#6b7670">Source: PMMVY state-wide evaluation, BMC Pregnancy &amp; Childbirth (2025).</text>
+</svg>

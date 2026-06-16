@@ -1,0 +1,32 @@
+<svg width="720" height="400" viewBox="0 0 720 400" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+<rect x="1" y="1" width="718" height="398" rx="14" fill="#ffffff" stroke="#e4e0d7"/>
+<text x="32" y="40" font-size="19" font-weight="700" fill="#1d2421">Where the help leaks</text>
+<text x="32" y="63" font-size="13" fill="#6b7670">Share of mothers / children who actually receive each benefit</text>
+<line x1="70" y1="314.0" x2="692" y2="314.0" stroke="#e4e0d7"/>
+<text x="60" y="318.0" font-size="11" fill="#6b7670" text-anchor="end">0%</text>
+<line x1="70" y1="257.0" x2="692" y2="257.0" stroke="#e4e0d7"/>
+<text x="60" y="261.0" font-size="11" fill="#6b7670" text-anchor="end">25%</text>
+<line x1="70" y1="200.0" x2="692" y2="200.0" stroke="#e4e0d7"/>
+<text x="60" y="204.0" font-size="11" fill="#6b7670" text-anchor="end">50%</text>
+<line x1="70" y1="143.0" x2="692" y2="143.0" stroke="#e4e0d7"/>
+<text x="60" y="147.0" font-size="11" fill="#6b7670" text-anchor="end">75%</text>
+<line x1="70" y1="86.0" x2="692" y2="86.0" stroke="#e4e0d7"/>
+<text x="60" y="90.0" font-size="11" fill="#6b7670" text-anchor="end">100%</text>
+<rect x="108.9" y="111.1" width="77.8" height="202.9" rx="5" fill="#0f7b6c"/>
+<text x="147.8" y="102.1" font-size="15" font-weight="700" fill="#1d2421" text-anchor="middle">89%</text>
+<text x="147.8" y="334.0" font-size="12" fill="#6b7670" text-anchor="middle">Free hospital</text>
+<text x="147.8" y="349.0" font-size="12" fill="#6b7670" text-anchor="middle">delivery</text>
+<rect x="264.4" y="138.4" width="77.8" height="175.6" rx="5" fill="#0f7b6c"/>
+<text x="303.2" y="129.4" font-size="15" font-weight="700" fill="#1d2421" text-anchor="middle">77%</text>
+<text x="303.2" y="334.0" font-size="12" fill="#6b7670" text-anchor="middle">Full child</text>
+<text x="303.2" y="349.0" font-size="12" fill="#6b7670" text-anchor="middle">immunisation</text>
+<rect x="419.9" y="205.2" width="77.8" height="108.8" rx="5" fill="#b9821f"/>
+<text x="458.8" y="196.2" font-size="15" font-weight="700" fill="#1d2421" text-anchor="middle">47.7%</text>
+<text x="458.8" y="334.0" font-size="12" fill="#6b7670" text-anchor="middle">Maternity cash:</text>
+<text x="458.8" y="349.0" font-size="12" fill="#6b7670" text-anchor="middle">1st installment</text>
+<rect x="575.4" y="291.2" width="77.8" height="22.8" rx="5" fill="#a4453a"/>
+<text x="614.2" y="282.2" font-size="15" font-weight="700" fill="#1d2421" text-anchor="middle">10%</text>
+<text x="614.2" y="334.0" font-size="12" fill="#6b7670" text-anchor="middle">Maternity cash:</text>
+<text x="614.2" y="349.0" font-size="12" fill="#6b7670" text-anchor="middle">all 3 installments</text>
+<text x="32" y="380" font-size="10.5" fill="#6b7670">Sources: NFHS-5 (delivery, immunisation); PMMVY state-wide evaluation, BMC Pregnancy &amp; Childbirth (2025).</text>
+</svg>
