@@ -102,6 +102,17 @@ No dependencies — Python 3.9+ standard library only. The web app installs to t
 home screen (PWA) and keeps working offline: the shell and each mother's last
 computed plan are cached on the phone.
 
+## Deploy
+
+Anywhere a container runs (Railway, Fly.io, Render, a ₹300/mo VPS):
+
+```bash
+docker build -t sahej . && docker run -p 8000:8000 sahej
+```
+
+Or bare: `HOST=0.0.0.0 python3 serve.py` — there is nothing else to install.
+`GET /healthz` is the liveness probe.
+
 ## Scenarios the engine handles
 
 - **All 36 states/UTs**, with LPS/HPS JSY amounts and **central-scheme opt-outs** (e.g. West Bengal ≠ PMMVY).
