@@ -108,16 +108,55 @@ def _state_index(kb):
     return {s["code"]: s for s in kb.get("states", [])}
 
 
+class ProfileError(ValueError):
+    """Invalid input profile — message is safe to show to the user."""
+
+
+def _validate(p, kb):
+    codes = set(_state_index(kb))
+    if not p.get("state"):
+        raise ProfileError("state is required (e.g. state=BR)")
+    if p["state"] not in codes:
+        raise ProfileError(f"unknown state code '{p['state']}' — use one of the 36 state/UT codes from /api/meta")
+    if p.get("delivery_state") and p["delivery_state"] not in codes:
+        raise ProfileError(f"unknown delivery_state code '{p['delivery_state']}'")
+    for field in ("delivery_type", "child_sex", "birth_outcome", "maternal_outcome", "area", "category"):
+        if p.get(field) is not None and p[field] not in META[field]:
+            raise ProfileError(f"invalid {field} '{p[field]}' — expected one of: {', '.join(META[field])}")
+    try:
+        p["child_number"] = int(p.get("child_number", 1))
+        p["multiple_birth"] = int(p.get("multiple_birth", 1))
+        p["mother_age_years"] = float(p.get("mother_age_years", 25.0))
+    except (TypeError, ValueError):
+        raise ProfileError("child_number and multiple_birth must be whole numbers; mother_age_years a number")
+    if not 1 <= p["child_number"] <= 15:
+        raise ProfileError("child_number must be between 1 and 15")
+    if not 1 <= p["multiple_birth"] <= 4:
+        raise ProfileError("multiple_birth must be between 1 (single) and 4")
+    if not 10 <= p["mother_age_years"] <= 70:
+        raise ProfileError("mother_age_years must be between 10 and 70")
+
+
 def build_profile(raw, kb, as_of=None):
     p = dict(PROFILE_DEFAULTS)
     p.update({k: v for k, v in raw.items() if v is not None})
+    _validate(p, kb)
 
     as_of = as_of or date.today()
+    p["future_birth"] = False
     if p.get("birth_date"):
         bd = p["birth_date"]
         if isinstance(bd, str):
-            bd = datetime.strptime(bd, "%Y-%m-%d").date()
-        p["days_since_birth"] = (as_of - bd).days
+            try:
+                bd = datetime.strptime(bd, "%Y-%m-%d").date()
+            except ValueError:
+                raise ProfileError(f"invalid birth_date '{p['birth_date']}' — expected YYYY-MM-DD")
+        delta = (as_of - bd).days
+        if delta < 0:
+            # Expected due date: show the plan ahead of the birth instead of failing.
+            p["future_birth"] = True
+            delta = 0
+        p["days_since_birth"] = delta
         p["birth_date"] = bd.isoformat()
     else:
         p["days_since_birth"] = 0
@@ -268,6 +307,8 @@ def resolve(raw_profile, kb=None, as_of=None):
         alerts.append({"level": "blocker", "text": "No Aadhaar-linked bank account — required to receive ANY cash. Open/seed one first."})
     if has_cash and not profile.get("has_aadhaar"):
         alerts.append({"level": "blocker", "text": "No Aadhaar — required for most cash transfers. Enrol first."})
+    if profile.get("future_birth"):
+        alerts.append({"level": "warn", "text": "Birth date is in the future — showing the plan for the expected delivery. Recheck after the birth."})
     if profile.get("is_migrant"):
         alerts.append({"level": "warn", "text": f"Migrant case: delivered in {sidx.get(profile['delivery_state'], {}).get('name', profile['delivery_state'])} but resident of {profile.get('state_name')}. Claim JSY where she delivered; state schemes follow her home state — check portability."})
     if sensitive_mode:

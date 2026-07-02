@@ -2,7 +2,7 @@
 """Tests for the Sahej resolver (v0.2). Run: python3 test_engine.py"""
 from datetime import date
 
-from engine import resolve, meta, load_kb
+from engine import resolve, meta, load_kb, ProfileError
 
 KB = load_kb()
 ASOF = date(2026, 6, 10)  # 9 days after a 2026-06-01 birth
@@ -135,6 +135,31 @@ def run():
 
     # 21. Meta exposes all 36 states/UTs.
     chk("21: meta lists 36 states/UTs", len(meta(KB)["states"]) == 36)
+
+    # 22. Validation: bad input raises ProfileError with a clear message.
+    def raises(msg_part, **kw):
+        try:
+            R(**kw)
+            return False
+        except ProfileError as e:
+            return msg_part in str(e)
+    chk("22: unknown state rejected", raises("unknown state code", state="XX"))
+    chk("22: unknown delivery_state rejected", raises("delivery_state", delivery_state="ZZ"))
+    chk("22: bad birth_date rejected", raises("YYYY-MM-DD", birth_date="01-06-2026"))
+    chk("22: bad enum rejected", raises("invalid delivery_type", delivery_type="teleport"))
+    chk("22: child_number range enforced", raises("child_number", child_number=0))
+    chk("22: mother_age range enforced", raises("mother_age_years", mother_age_years=8))
+    chk("22: non-numeric child_number rejected", raises("whole numbers", child_number="two"))
+
+    # 23. Future birth date -> plan-ahead mode, not an error.
+    r = R(birth_date="2026-07-01")  # 21 days after ASOF
+    chk("23: future birth allowed", r["summary"]["eligible_count"] > 0)
+    chk("23: future-birth warning raised", any("future" in a["text"] for a in r["alerts"]))
+    chk("23: days_since_birth clamped to 0", r["profile"]["days_since_birth"] == 0)
+
+    # 24. String inputs from HTTP query coerce cleanly.
+    r = R(child_number="2", mother_age_years="29", child_sex="girl")
+    chk("24: string child_number coerced", "pmmvy_second_girl" in ids(r))
 
     passed = sum(1 for _, ok in checks if ok)
     for name, ok in checks:

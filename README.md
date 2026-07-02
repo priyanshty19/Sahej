@@ -73,26 +73,34 @@ first installment and only about 1 in 10 received all three.
 > The money is allocated — roughly **₹1 lakh crore** of welfare funds goes unspent every
 > year. The gap is awareness, timing and follow-through. **That's the gap Sahej closes.**
 
-## What's in this MVP (v0.2)
+## What's in this build
 
 | File | What it is |
 |------|------------|
 | `PRODUCT_PLAN.md` | The owner's plan: personas, the full scenario matrix, feature set, roadmap. |
 | `data/childbirth_schemes.json` | **The asset.** Structured, sourced rules + all **36 states/UTs** (LPS·HPS, opt-outs). |
-| `engine.py` | Pure-stdlib resolver: eligibility, blocking, claimed-tracking, urgency, documents, sensitive-mode, migrants. CLI + `meta()`. |
-| `test_engine.py` | **46 checks** across the whole scenario matrix. |
-| `serve.py` | Zero-dependency server: `/api/meta` + `/api/resolve` (same engine as CLI/tests). |
-| `web/index.html` | Full SPA: caseload, progress tracking, language toggle, docs checklist, alerts, share. |
+| `engine.py` | Pure-stdlib resolver: eligibility, blocking, claimed-tracking, urgency, documents, sensitive-mode, migrants, **input validation**. CLI + `meta()`. |
+| `serve.py` | Zero-dependency hardened server: pages, API, static/PWA assets, security headers (CSP, nosniff, frame-deny), traversal-safe. |
+| `web/landing.html` | The story: problem, insight, how it works, coverage, partner CTA. |
+| `web/index.html` | The ASHA tool (PWA): caseload, progress tracking, EN⇄HI, docs checklist, alerts, share, **offline support**. |
+| `web/sw.js` + `manifest.webmanifest` + icons | Installable app; shell cached offline, last plans available without signal. |
+| `test_engine.py` + `test_server.py` | **78 checks**: full scenario matrix + HTTP routing/validation/security. CI runs them on every push. |
+| `tools/` | Reproducible generators for the README charts and PWA icons. |
 
 ## Run it
 
 ```bash
-python3 test_engine.py     # 46 scenario checks
+python3 test_engine.py     # 57 scenario checks
+python3 test_server.py     # 21 HTTP/security checks
 python3 engine.py --state BR --birth-date 2026-06-01 --child-number 1 --child-sex girl \
     --area rural --mother-age 24                     # CLI report
 python3 engine.py --birth-outcome stillbirth --state BR    # sensitive case
-python3 serve.py           # open http://localhost:8000 (web app)
+python3 serve.py           # http://localhost:8000 — landing at /, app at /app
 ```
+
+No dependencies — Python 3.9+ standard library only. The web app installs to the
+home screen (PWA) and keeps working offline: the shell and each mother's last
+computed plan are cached on the phone.
 
 ## Scenarios the engine handles
 

@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Engine tests
+        run: python3 test_engine.py
+      - name: Server tests
+        run: python3 test_server.py
+      - name: Knowledge base is valid JSON
+        run: python3 -c "import json; json.load(open('data/childbirth_schemes.json'))"
+      - name: Charts & icons regenerate cleanly
+        run: |
+          python3 tools/make_charts.py
+          python3 tools/make_icons.py

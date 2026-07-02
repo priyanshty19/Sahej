@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sahej — benefit co-pilot for ASHA workers</title>
+<meta name="description" content="Every benefit a new mother is owed — as a dated checklist on the ASHA's visit schedule. Works offline.">
+<meta name="theme-color" content="#0f7b6c">
+<meta property="og:title" content="Sahej — benefit co-pilot for ASHA workers">
+<meta property="og:description" content="Every rupee a new mother is owed, on the days you already visit.">
+<meta property="og:type" content="website">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>
   :root{
     --bg:#f6f4ef; --panel:#fff; --ink:#1d2421; --muted:#6b7670; --line:#e4e0d7;
@@ -89,10 +97,22 @@
   .none{font-size:12.5px;color:var(--muted);background:#faf8f3;border:1px dashed var(--line);border-radius:11px;padding:9px 11px;margin-top:8px}
   .none b{color:var(--ink)}
   footer{max-width:1180px;margin:0 auto;padding:4px 20px 28px;font-size:11px;color:var(--muted)}
-  @media print{.panel.form,.panel.case-panel,header .hbtns{display:none}.wrap{grid-template-columns:1fr}}
+  /* a11y + touch */
+  :focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:4px}
+  .offline{display:none;background:#4a5568;color:#fff;text-align:center;font-size:12.5px;padding:6px 10px}
+  .offline.on{display:block}
+  @media(max-width:640px){
+    select,input{padding:11px 10px;font-size:15px}   /* ≥44px touch targets, no iOS zoom */
+    .btn{padding:13px}
+    .hbtns button{padding:9px 13px;font-size:13.5px}
+    .card .cb{width:20px;height:20px}
+    .stat .big{font-size:21px}
+  }
+  @media print{.panel.form,.panel.case-panel,header .hbtns,.offline{display:none}.wrap{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
+<div class="offline" id="offlineBanner" role="status">Offline — showing saved data. Changes still work; they sync from your phone's storage.</div>
 <header id="hdr">
   <div>
     <a href="/" style="color:inherit;text-decoration:none" title="Back to home"><h1 id="t-title" style="margin:0">Sahej · सहज</h1></a>
@@ -116,32 +136,32 @@
   <!-- FORM -->
   <form class="panel form" id="form">
     <h2 id="t-mother">This mother</h2>
-    <label id="l-name">Name / ID</label>
-    <input id="name" placeholder="e.g. Sunita (ward 4)">
-    <label id="l-state">Home state / UT</label>
+    <label id="l-name" for="name">Name / ID</label>
+    <input id="name" placeholder="e.g. Sunita (ward 4)" autocomplete="off" maxlength="60">
+    <label id="l-state" for="state">Home state / UT</label>
     <select id="state"></select>
     <div class="row">
-      <div><label id="l-area">Area</label><select id="area"></select></div>
-      <div><label id="l-delivery">Delivery</label><select id="delivery_type"></select></div>
+      <div><label id="l-area" for="area">Area</label><select id="area"></select></div>
+      <div><label id="l-delivery" for="delivery_type">Delivery</label><select id="delivery_type"></select></div>
     </div>
     <div class="row">
-      <div><label id="l-childnum">Child number</label><select id="child_number"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
-      <div><label id="l-childsex">Child sex</label><select id="child_sex"></select></div>
+      <div><label id="l-childnum" for="child_number">Child number</label><select id="child_number"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+      <div><label id="l-childsex" for="child_sex">Child sex</label><select id="child_sex"></select></div>
     </div>
     <div class="row">
-      <div><label id="l-age">Mother's age</label><input type="number" id="mother_age_years" value="24" min="13" max="55"></div>
-      <div><label id="l-birth">Birth date</label><input type="date" id="birth_date" value="2026-06-01"></div>
+      <div><label id="l-age" for="mother_age_years">Mother's age</label><input type="number" id="mother_age_years" value="24" min="13" max="55"></div>
+      <div><label id="l-birth" for="birth_date">Birth date</label><input type="date" id="birth_date"></div>
     </div>
     <div class="row">
-      <div><label id="l-outcome">Birth outcome</label><select id="birth_outcome"></select></div>
-      <div><label id="l-moutcome">Mother</label><select id="maternal_outcome"></select></div>
+      <div><label id="l-outcome" for="birth_outcome">Birth outcome</label><select id="birth_outcome"></select></div>
+      <div><label id="l-moutcome" for="maternal_outcome">Mother</label><select id="maternal_outcome"></select></div>
     </div>
 
     <details>
       <summary id="t-more">More details (category, income, risk…)</summary>
       <div class="row">
-        <div><label id="l-cat">Social category</label><select id="category"></select></div>
-        <div><label id="l-dstate">Delivered in (if migrant)</label><select id="delivery_state"></select></div>
+        <div><label id="l-cat" for="category">Social category</label><select id="category"></select></div>
+        <div><label id="l-dstate" for="delivery_state">Delivered in (if migrant)</label><select id="delivery_state"></select></div>
       </div>
       <div class="check"><input type="checkbox" id="bpl"><label for="bpl" id="l-bpl" style="margin:0">BPL household</label></div>
       <div class="check"><input type="checkbox" id="premature"><label for="premature" id="l-prem" style="margin:0">Premature</label></div>
@@ -158,7 +178,7 @@
   </form>
 
   <!-- RESULTS -->
-  <div class="panel" id="results"><p class="profile-line">Loading…</p></div>
+  <div class="panel" id="results" aria-live="polite" aria-busy="true"><p class="profile-line">Loading…</p></div>
 </div>
 <footer id="kbnote"></footer>
 
@@ -199,12 +219,14 @@ let META=null, lang="en";
 let current = newMother();
 let caseload = load();
 
+function today(){return new Date().toISOString().slice(0,10);}
 function newMother(){return {id:null,name:"",profile:{state:"BR",area:"rural",delivery_type:"institutional_public",
-  child_number:1,child_sex:"girl",mother_age_years:24,birth_date:"2026-06-01",birth_outcome:"live",maternal_outcome:"alive",
+  child_number:1,child_sex:"girl",mother_age_years:24,birth_date:today(),birth_outcome:"live",maternal_outcome:"alive",
   category:"general",delivery_state:""},bools:{has_aadhaar:true,has_bank_account:true},claimed:[]};}
 function load(){try{return JSON.parse(localStorage.getItem("sahej_caseload")||"[]")}catch(e){return[]}}
-function persist(){localStorage.setItem("sahej_caseload",JSON.stringify(caseload));}
+function persist(){try{localStorage.setItem("sahej_caseload",JSON.stringify(caseload));}catch(e){/* storage full/blocked — keep working in memory */}}
 function rupees(n){return "₹"+Number(n).toLocaleString("en-IN");}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function L(k){return (I18N[lang]||I18N.en)[k];}
 function optLabel(field,val){return (OPT_LABELS[field]&&OPT_LABELS[field][val])||val;}
 
@@ -259,11 +281,22 @@ function buildQuery(){
 }
 
 async function run(){
+  const box=document.getElementById("results");
+  box.setAttribute("aria-busy","true");
   try{
-    const r=await (await fetch("/api/resolve?"+buildQuery())).json();
+    const res=await fetch("/api/resolve?"+buildQuery());
+    const r=await res.json();
+    if(!res.ok){box.innerHTML='<p class="profile-line">Could not compute: '+esc(r.error||"invalid input")+'</p>';return;}
     window._last=r; render(r);
-  }catch(e){document.getElementById("results").innerHTML='<p class="profile-line">Engine unreachable. Run <b>python3 serve.py</b> and reload.</p>';}
+  }catch(e){
+    box.innerHTML='<p class="profile-line">Can\'t reach the engine and no saved copy of this plan yet. '
+      +'Check the connection and <button class="btn sec" style="width:auto;margin-top:8px;padding:7px 14px" onclick="run()">try again</button></p>';
+  }finally{box.setAttribute("aria-busy","false");}
 }
+function setOffline(off){document.getElementById("offlineBanner").classList.toggle("on",!!off);}
+window.addEventListener("online",()=>{setOffline(false);run();});
+window.addEventListener("offline",()=>setOffline(true));
+if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{});}
 
 function badge(it){
   let b=[];
@@ -297,7 +330,7 @@ function render(r){
     +'<div class="stat"><div class="big">'+rupees(r.summary.remaining_cash_inr)+'</div><div class="lbl">'+L("remaining")+'</div></div>'
     +'<div class="stat"><div class="big">'+r.summary.outstanding_count+'</div><div class="lbl">'+L("outstanding")+'</div></div></div>';
   const p=r.profile;
-  h+='<div class="profile-line">'+(current.name?'<b>'+current.name+'</b> · ':'')+p.state_name+(p.state_lps?' (LPS)':' (HPS)')
+  h+='<div class="profile-line">'+(current.name?'<b>'+esc(current.name)+'</b> · ':'')+esc(p.state_name)+(p.state_lps?' (LPS)':' (HPS)')
     +' · '+optLabel("area",p.area)+' · '+optLabel("delivery_type",p.delivery_type)+' · '+optLabel("birth_outcome",p.birth_outcome)
     +' · born '+p.birth_date+' (day '+p.days_since_birth+')</div>';
 
@@ -333,15 +366,22 @@ function renderCaseload(){
   if(!caseload.length){el.innerHTML='<div class="empty">No mothers saved yet. Fill the form and Save.</div>';return;}
   el.innerHTML=caseload.map(m=>{
     const done=(m.claimed||[]).length;
-    return '<div class="case '+(m.id===current.id?'active':'')+'" data-id="'+m.id+'">'
-      +'<div>'+(m.name||"(unnamed)")+'<small>'+(m.profile.state||"")+' · '+done+' done</small></div>'
-      +'<button class="del" data-del="'+m.id+'">✕</button></div>';}).join("");
-  el.querySelectorAll(".case").forEach(c=>c.addEventListener("click",e=>{
-    if(e.target.dataset.del)return; selectMother(c.dataset.id);}));
+    return '<div class="case '+(m.id===current.id?'active':'')+'" data-id="'+esc(m.id)+'" role="button" tabindex="0">'
+      +'<div>'+esc(m.name||"(unnamed)")+'<small>'+esc(m.profile.state||"")+' · '+done+' done</small></div>'
+      +'<button class="del" data-del="'+esc(m.id)+'" aria-label="Remove '+esc(m.name||"this mother")+' from caseload">✕</button></div>';}).join("");
+  el.querySelectorAll(".case").forEach(c=>{
+    c.addEventListener("click",e=>{if(e.target.dataset.del)return; selectMother(c.dataset.id);});
+    c.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();selectMother(c.dataset.id);}});
+  });
   el.querySelectorAll(".del").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();delMother(b.dataset.del);}));
 }
 function selectMother(id){const m=caseload.find(x=>x.id===id);if(!m)return;current=JSON.parse(JSON.stringify(m));loadIntoForm();renderCaseload();run();}
-function delMother(id){caseload=caseload.filter(x=>x.id!==id);persist();if(current.id===id){current=newMother();loadIntoForm();}renderCaseload();run();}
+function delMother(id){
+  const m=caseload.find(x=>x.id===id);
+  if(!confirm("Remove "+((m&&m.name)||"this mother")+" from the caseload? This cannot be undone."))return;
+  caseload=caseload.filter(x=>x.id!==id);persist();
+  if(current.id===id){current=newMother();loadIntoForm();}
+  renderCaseload();run();}
 function saveMother(){
   formToCurrent();
   if(!current.id)current.id="m"+Date.now();
