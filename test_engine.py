@@ -2,7 +2,7 @@
 """Tests for the Sahej resolver (v0.2). Run: python3 test_engine.py"""
 from datetime import date
 
-from engine import resolve, meta, load_kb, ProfileError
+from engine import resolve, meta, load_kb, work_plan, ProfileError
 
 KB = load_kb()
 ASOF = date(2026, 6, 10)  # 9 days after a 2026-06-01 birth
@@ -160,6 +160,42 @@ def run():
     # 24. String inputs from HTTP query coerce cleanly.
     r = R(child_number="2", mother_age_years="29", child_sex="girl")
     chk("24: string child_number coerced", "pmmvy_second_girl" in ids(r))
+
+    # 25. Application lifecycle: applied -> tracked; >45 days -> stuck + alert.
+    r = R(birth_date="2026-05-01", applied="jsy_delivery_cash:2026-05-14", _asof=date(2026, 7, 3))
+    it = item(r, "jsy_delivery_cash")
+    chk("25: applied status set", it["status"] == "applied")
+    chk("25: days since applied computed", it["days_since_applied"] == 50)
+    chk("25: stuck after 45 days", it["stuck"])
+    chk("25: stuck alert raised", any(a["level"] == "stuck" for a in r["alerts"]))
+    chk("25: applied still counts as remaining cash", r["summary"]["remaining_cash_inr"] > 0)
+    r = R(applied="jsy_delivery_cash:2026-06-05")  # 5 days at ASOF
+    chk("25: fresh application not stuck", not item(r, "jsy_delivery_cash")["stuck"])
+    chk("25: received wins over applied",
+        item(R(claimed=["jsy_delivery_cash"], applied="jsy_delivery_cash:2026-06-05"), "jsy_delivery_cash")["status"] == "done")
+    try:
+        R(applied="jsy_delivery_cash:junk")
+        chk("25: bad applied date rejected", False)
+    except ProfileError:
+        chk("25: bad applied date rejected", True)
+
+    # 26. Apply-at / grievance channels present on every scheme.
+    chk("26: every scheme has apply_at + grievance",
+        all(s.get("apply_at") and s.get("grievance") for s in KB["schemes"]))
+    chk("26: channels carried onto timeline items",
+        all(it["apply_at"] for it in R()["timeline"]))
+
+    # 27. work_plan: ordering, totals, per-mother error isolation.
+    plan = work_plan([
+        {"id": "a", "name": "VisitToday", "profile": {"state": "BR", "birth_date": "2026-06-30"}},
+        {"id": "b", "name": "Overdue", "profile": {"state": "MH", "birth_date": "2026-05-20", "area": "urban"}},
+        {"id": "c", "name": "Broken", "profile": {"state": "XX"}},
+    ], kb=KB, as_of=date(2026, 7, 3))
+    chk("27: overdue mother ranked first", plan["plan"][0]["name"] == "Overdue")
+    chk("27: visit-today flagged", any(e["visit_today"] for e in plan["plan"]))
+    chk("27: invalid mother isolated as error, not crash",
+        len(plan["errors"]) == 1 and "unknown state" in plan["errors"][0]["error"])
+    chk("27: totals aggregate", plan["totals"]["mothers"] == 2 and plan["totals"]["remaining_cash_inr"] > 0)
 
     passed = sum(1 for _, ok in checks if ok)
     for name, ok in checks:

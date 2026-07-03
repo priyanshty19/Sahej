@@ -4,7 +4,7 @@
  * API (/api/*): network-first with cache fallback, so an ASHA who loses
  * signal mid-visit still sees the last computed plan for each mother.
  */
-const VERSION = "sahej-v1";
+const VERSION = "sahej-v2";
 const SHELL = [
   "/", "/app",
   "/manifest.webmanifest",

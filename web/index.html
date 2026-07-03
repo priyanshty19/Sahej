@@ -65,6 +65,38 @@
   .a-urgent{background:var(--orange-soft);border-color:var(--orange);color:var(--orange)}
   .a-warn{background:var(--info-soft);border-color:var(--info);color:var(--info)}
   .a-sensitive{background:var(--purple-soft);border-color:var(--purple);color:var(--purple)}
+  .a-stuck{background:var(--danger-soft);border-color:var(--danger);color:var(--danger)}
+  /* tabs */
+  .tabs{display:flex;gap:6px;margin-bottom:12px}
+  .tabs button{flex:1;padding:9px 10px;border:1px solid var(--line);background:#fff;border-radius:9px;
+    font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
+  .tabs button.on{background:var(--brand);border-color:var(--brand);color:#fff}
+  /* today plan */
+  .prow{border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:8px;cursor:pointer;background:#fff}
+  .prow:hover{border-color:var(--brand)}
+  .prow .top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+  .prow .nm{font-weight:600;font-size:14px}
+  .prow .day{font-size:12px;color:var(--muted)}
+  .prow .chips{margin-top:5px;display:flex;gap:5px;flex-wrap:wrap}
+  .prow ul{margin:7px 0 0;padding-left:18px}
+  .prow li{font-size:12px;color:var(--muted);margin:2px 0}
+  .chip2{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px}
+  .c-over{background:var(--danger-soft);color:var(--danger)}
+  .c-stuck{background:var(--danger-soft);color:var(--danger)}
+  .c-urg{background:var(--orange-soft);color:var(--orange)}
+  .c-visit{background:var(--brand-soft);color:var(--brand)}
+  .c-cash{background:var(--gold-soft);color:var(--gold)}
+  /* card action buttons */
+  .abtns{margin-top:7px;display:flex;gap:6px;flex-wrap:wrap}
+  .abtn{border:1px solid var(--brand);background:#fff;color:var(--brand);border-radius:8px;
+    padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer}
+  .abtn.warn{border-color:var(--danger);color:var(--danger)}
+  .b-applied{background:var(--info-soft);color:var(--info)}
+  .b-stuck{background:var(--danger-soft);color:var(--danger)}
+  .tools{display:flex;gap:6px;margin-top:10px}
+  .tools button{flex:1;border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 4px;
+    font-size:11.5px;color:var(--muted);cursor:pointer}
+  .tools button:hover{border-color:var(--brand);color:var(--brand)}
   .visit{position:relative;padding:0 0 2px 24px;margin-bottom:16px}
   .visit::before{content:"";position:absolute;left:6px;top:20px;bottom:-12px;width:2px;background:var(--rail)}
   .visit:last-child::before{display:none}
@@ -131,6 +163,12 @@
     <h2 id="t-caseload">My caseload</h2>
     <div id="caseList"></div>
     <button class="btn sec" id="newBtn">+ New mother</button>
+    <div class="tools">
+      <button id="backupBtn" title="Download caseload backup (JSON)">Backup</button>
+      <button id="restoreBtn" title="Restore caseload from a backup file">Restore</button>
+      <button id="csvBtn" title="Download block report (CSV)">Report CSV</button>
+    </div>
+    <input type="file" id="restoreFile" accept="application/json,.json" hidden>
   </div>
 
   <!-- FORM -->
@@ -178,7 +216,13 @@
   </form>
 
   <!-- RESULTS -->
-  <div class="panel" id="results" aria-live="polite" aria-busy="true"><p class="profile-line">Loading…</p></div>
+  <div class="panel">
+    <div class="tabs" role="tablist">
+      <button id="tabToday" role="tab" aria-selected="false">Today</button>
+      <button id="tabMother" role="tab" aria-selected="true" class="on">This mother</button>
+    </div>
+    <div id="results" aria-live="polite" aria-busy="true"><p class="profile-line">Loading…</p></div>
+  </div>
 </div>
 <footer id="kbnote"></footer>
 
@@ -204,7 +248,13 @@ const I18N = {
     prem:"Premature",lbw:"Low birth weight",single:"Single / widowed mother",mdis:"Mother has a disability",cdis:"Child has a disability",
     govt:"Regular govt / PSU employee",aadhaar:"Has Aadhaar",bank:"Has Aadhaar-linked bank account",save:"Save to caseload",
     newm:"+ New mother",lang:"हिन्दी",remaining:"remaining cash for this mother",outstanding:"actions still to do",
-    docsH:"Documents to gather",notElig:"Not eligible here",nextAction:"Next action",done:"done"},
+    docsH:"Documents to gather",notElig:"Not eligible here",nextAction:"Next action",done:"done",
+    today:"Today",thisMother:"This mother",visitToday:"visit today",nextVisit:"next visit day",
+    hbncDone:"HBNC complete",appliedBtn:"Applied today",receivedBtn:"Received ✓",appliedTag:"applied",
+    stuckTag:"stuck",applyAt:"Apply at",grievanceL:"Escalate to",complaint:"Copy complaint",
+    backup:"Backup",restore:"Restore",csv:"Report CSV",
+    planEmpty:"No mothers in the caseload yet — fill the form and Save.",
+    allCaught:"All caught up — no visits or urgent items today.",toApply:"to claim"},
   hi:{title:"सहज · Sahej",tag:"आशा कार्यकर्ता की सहायक — हर नई माँ का हक़, उन्हीं दिनों पर जब आप पहले से जाती हैं।",
     caseload:"मेरी सूची",mother:"यह माँ",name:"नाम / पहचान",state:"राज्य / केंद्रशासित",area:"क्षेत्र",delivery:"प्रसव",
     childnum:"संतान क्रमांक",childsex:"शिशु लिंग",age:"माँ की उम्र",birth:"जन्म तिथि",outcome:"जन्म परिणाम",moutcome:"माँ",
@@ -212,7 +262,13 @@ const I18N = {
     prem:"समय-पूर्व जन्म",lbw:"कम वज़न",single:"अकेली / विधवा माँ",mdis:"माँ दिव्यांग",cdis:"शिशु दिव्यांग",
     govt:"सरकारी / पीएसयू कर्मचारी",aadhaar:"आधार है",bank:"आधार-लिंक बैंक खाता है",save:"सूची में सहेजें",
     newm:"+ नई माँ",lang:"English",remaining:"इस माँ के लिए शेष राशि",outstanding:"शेष कार्य",
-    docsH:"आवश्यक दस्तावेज़",notElig:"यहाँ अपात्र",nextAction:"अगला कार्य",done:"पूर्ण"},
+    docsH:"आवश्यक दस्तावेज़",notElig:"यहाँ अपात्र",nextAction:"अगला कार्य",done:"पूर्ण",
+    today:"आज",thisMother:"यह माँ",visitToday:"आज भेंट",nextVisit:"अगली भेंट दिन",
+    hbncDone:"भेंटें पूर्ण",appliedBtn:"आज आवेदन किया",receivedBtn:"मिल गया ✓",appliedTag:"आवेदित",
+    stuckTag:"अटका",applyAt:"आवेदन कहाँ",grievanceL:"शिकायत यहाँ",complaint:"शिकायत कॉपी करें",
+    backup:"बैकअप",restore:"वापस लाएँ",csv:"रिपोर्ट CSV",
+    planEmpty:"सूची में अभी कोई माँ नहीं — फ़ॉर्म भरकर सहेजें।",
+    allCaught:"सब अद्यतन — आज कोई भेंट या तात्कालिक कार्य नहीं।",toApply:"दावा शेष"},
 };
 
 let META=null, lang="en";
@@ -222,7 +278,8 @@ let caseload = load();
 function today(){return new Date().toISOString().slice(0,10);}
 function newMother(){return {id:null,name:"",profile:{state:"BR",area:"rural",delivery_type:"institutional_public",
   child_number:1,child_sex:"girl",mother_age_years:24,birth_date:today(),birth_outcome:"live",maternal_outcome:"alive",
-  category:"general",delivery_state:""},bools:{has_aadhaar:true,has_bank_account:true},claimed:[]};}
+  category:"general",delivery_state:""},bools:{has_aadhaar:true,has_bank_account:true},claimed:[],applied:{}};}
+function migrate(m){if(!m.applied)m.applied={};if(!m.claimed)m.claimed=[];return m;}
 function load(){try{return JSON.parse(localStorage.getItem("sahej_caseload")||"[]")}catch(e){return[]}}
 function persist(){try{localStorage.setItem("sahej_caseload",JSON.stringify(caseload));}catch(e){/* storage full/blocked — keep working in memory */}}
 function rupees(n){return "₹"+Number(n).toLocaleString("en-IN");}
@@ -244,7 +301,9 @@ async function init(){
   fillSelect(document.getElementById("birth_outcome"),META.options.birth_outcome,"birth_outcome");
   fillSelect(document.getElementById("maternal_outcome"),META.options.maternal_outcome,"maternal_outcome");
   fillSelect(document.getElementById("category"),META.options.category,"category");
-  applyLang(); loadIntoForm(); renderCaseload(); run();
+  caseload=caseload.map(migrate);
+  applyLang(); loadIntoForm(); renderCaseload();
+  setView(caseload.length?"today":"mother");
 }
 
 function applyLang(){
@@ -258,6 +317,11 @@ function applyLang(){
   for(const id in map){const el=document.getElementById(id);if(el)el.textContent=L(map[id]);}
   document.getElementById("saveBtn").textContent=L("save");
   document.getElementById("newBtn").textContent=L("newm");
+  document.getElementById("tabToday").textContent=L("today");
+  document.getElementById("tabMother").textContent=L("thisMother");
+  document.getElementById("backupBtn").textContent=L("backup");
+  document.getElementById("restoreBtn").textContent=L("restore");
+  document.getElementById("csvBtn").textContent=L("csv");
 }
 
 function loadIntoForm(){
@@ -277,8 +341,25 @@ function buildQuery(){
   for(const k in current.profile){if(current.profile[k]!=="")q.set(k,current.profile[k]);}
   for(const k in current.bools){q.set(k,current.bools[k]?"true":"false");}
   if(current.claimed.length)q.set("claimed",current.claimed.join(","));
+  const ap=Object.entries(current.applied||{}).map(([c,d])=>c+":"+d).join(",");
+  if(ap)q.set("applied",ap);
   return q.toString();
 }
+function persistCurrent(){
+  if(!current.id)return;
+  const i=caseload.findIndex(x=>x.id===current.id);
+  if(i>=0){caseload[i]=JSON.parse(JSON.stringify(current));persist();}
+}
+
+let view="mother";
+function setView(v){
+  view=v;
+  for(const [id,on] of [["tabToday",v==="today"],["tabMother",v==="mother"]]){
+    const el=document.getElementById(id);el.classList.toggle("on",on);el.setAttribute("aria-selected",on);
+  }
+  refresh();
+}
+function refresh(){view==="today"?runToday():run();}
 
 async function run(){
   const box=document.getElementById("results");
@@ -293,6 +374,60 @@ async function run(){
       +'Check the connection and <button class="btn sec" style="width:auto;margin-top:8px;padding:7px 14px" onclick="run()">try again</button></p>';
   }finally{box.setAttribute("aria-busy","false");}
 }
+
+function flatten(m){
+  const p={...m.profile};
+  for(const k in (m.bools||{}))p[k]=m.bools[k];
+  p.claimed=m.claimed||[]; p.applied=m.applied||{};
+  for(const k in p)if(p[k]==="")delete p[k];
+  return p;
+}
+
+async function runToday(){
+  const box=document.getElementById("results");
+  box.setAttribute("aria-busy","true");
+  if(!caseload.length){box.innerHTML='<p class="profile-line">'+L("planEmpty")+'</p>';box.setAttribute("aria-busy","false");return;}
+  try{
+    const mothers=caseload.map(m=>({id:m.id,name:m.name,profile:flatten(m)}));
+    const res=await fetch("/api/plan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mothers})});
+    const pl=await res.json();
+    if(!res.ok){box.innerHTML='<p class="profile-line">'+esc(pl.error||"error")+'</p>';return;}
+    window._plan=pl; renderPlan(pl);
+  }catch(e){
+    box.innerHTML='<p class="profile-line">Can\'t reach the engine. <button class="abtn" onclick="runToday()">Retry</button></p>';
+  }finally{box.setAttribute("aria-busy","false");}
+}
+
+function renderPlan(pl){
+  const t=pl.totals;
+  let h='<div class="summary">'
+    +'<div class="stat"><div class="big">'+t.visits_today+'</div><div class="lbl">'+L("visitToday")+'</div></div>'
+    +'<div class="stat"><div class="big">'+(t.overdue+t.stuck)+'</div><div class="lbl">overdue + '+L("stuckTag")+'</div></div>'
+    +'<div class="stat"><div class="big">'+rupees(t.remaining_cash_inr)+'</div><div class="lbl">'+L("toApply")+'</div></div></div>';
+  if(pl.plan.length&&!pl.plan.some(e=>e.score>=20||e.overdue||e.stuck||e.urgent))
+    h+='<div class="alert a-warn">'+L("allCaught")+'</div>';
+  pl.plan.forEach(e=>{
+    const chips=[];
+    if(e.visit_today)chips.push('<span class="chip2 c-visit">'+L("visitToday")+'</span>');
+    if(e.overdue)chips.push('<span class="chip2 c-over">'+e.overdue+' overdue</span>');
+    if(e.stuck)chips.push('<span class="chip2 c-stuck">'+e.stuck+' '+L("stuckTag")+'</span>');
+    if(e.urgent)chips.push('<span class="chip2 c-urg">'+e.urgent+' urgent</span>');
+    if(e.remaining_cash_inr)chips.push('<span class="chip2 c-cash">'+rupees(e.remaining_cash_inr)+'</span>');
+    const when=e.hbnc_complete?L("hbncDone"):(e.visit_today?"":L("nextVisit")+" "+e.next_visit_day);
+    const acts=e.top_actions.map(a=>'<li>'+esc(a.title)+(a.cash_inr?' ('+rupees(a.cash_inr)+')':'')+'</li>').join("");
+    h+='<div class="prow" data-mid="'+esc(e.id)+'" role="button" tabindex="0">'
+      +'<div class="top"><span class="nm">'+esc(e.name)+'</span><span class="day">day '+e.day+(when?' · '+when:'')+'</span></div>'
+      +'<div class="chips">'+chips.join("")+'</div>'+(acts?'<ul>'+acts+'</ul>':'')+'</div>';
+  });
+  pl.errors.forEach(er=>{h+='<div class="alert a-blocker">'+esc(er.name)+': '+esc(er.error)+'</div>';});
+  const box=document.getElementById("results");
+  box.innerHTML=h;
+  box.querySelectorAll(".prow").forEach(rw=>{
+    const open=()=>{selectMother(rw.dataset.mid);};
+    rw.addEventListener("click",open);
+    rw.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open();}});
+  });
+}
 function setOffline(off){document.getElementById("offlineBanner").classList.toggle("on",!!off);}
 window.addEventListener("online",()=>{setOffline(false);run();});
 window.addEventListener("offline",()=>setOffline(true));
@@ -301,26 +436,44 @@ if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catc
 function badge(it){
   let b=[];
   if(it.done)b.push('<span class="badge b-done">'+L("done")+'</span>');
+  else if(it.status==="applied"){
+    b.push('<span class="badge b-applied">'+L("appliedTag")+' '+it.days_since_applied+'d</span>');
+    if(it.stuck)b.push('<span class="badge b-stuck">'+L("stuckTag")+'</span>');
+  }
   else if(it.status==="overdue")b.push('<span class="badge b-overdue">overdue</span>');
   else if(it.status==="urgent")b.push('<span class="badge b-urgent">urgent</span>');
   else if(it.status==="blocked")b.push('<span class="badge b-blocked">blocked</span>');
   if(it.is_gateway)b.push('<span class="badge b-gate">gateway</span>');
   if(it.needs_verification)b.push('<span class="badge b-verify">verify</span>');
-  if(it.deadline_day!=null&&!it.done)b.push('<span class="badge b-deadline">due day '+it.deadline_day+'</span>');
+  if(it.deadline_day!=null&&!it.done&&it.status!=="applied")b.push('<span class="badge b-deadline">due day '+it.deadline_day+'</span>');
   return b.join("");
 }
 function cardHTML(it){
   const title = (lang==="hi"&&it.title_hi)?it.title_hi:it.title;
   const sub = (lang==="hi"&&it.title_hi)?it.title:(it.title_hi||"");
   const cash=it.cash_inr?'<div class="cash">'+rupees(it.cash_inr)+'</div>':'';
-  const blk=it.blocked_by.length?'<div class="meta2">Do first: <b>'+it.blocked_by.join(", ")+'</b></div>':'';
-  const docs=it.documents.length?'<div class="meta2">Docs: '+it.documents.join(", ")+'</div>':'';
-  const note=it.note?'<div class="meta2">'+it.note+'</div>':'';
+  const blk=it.blocked_by.length?'<div class="meta2">Do first: <b>'+esc(it.blocked_by.join(", "))+'</b></div>':'';
+  const docs=it.documents.length?'<div class="meta2">Docs: '+esc(it.documents.join(", "))+'</div>':'';
+  const note=it.note?'<div class="meta2">'+esc(it.note)+'</div>':'';
+  const where=(it.apply_at&&!it.done)?'<div class="meta2">'+L("applyAt")+': <b>'+esc(it.apply_at)+'</b>'
+    +(it.apply_via?' · '+esc(it.apply_via):'')+'</div>':'';
+  const grv=((it.stuck||it.status==="overdue")&&it.grievance)
+    ?'<div class="meta2">'+L("grievanceL")+': <b>'+esc(it.grievance)+'</b></div>':'';
+  let btns='';
+  if(!it.done&&it.status!=="blocked"){
+    if(it.status==="applied"){
+      btns='<div class="abtns"><button type="button" class="abtn" data-recv="'+it.component_id+'">'+L("receivedBtn")+'</button>'
+        +(it.stuck?'<button type="button" class="abtn warn" data-complain="'+it.component_id+'">'+L("complaint")+'</button>':'')+'</div>';
+    }else{
+      btns='<div class="abtns"><button type="button" class="abtn" data-app="'+it.component_id+'">'+L("appliedBtn")+'</button></div>';
+    }
+  }
   return '<div class="card '+(it.done?'done':'')+'">'
-    +'<input class="cb" type="checkbox" data-cid="'+it.component_id+'" '+(it.done?'checked':'')+'>'
+    +'<input class="cb" type="checkbox" data-cid="'+it.component_id+'" '+(it.done?'checked':'')
+    +' aria-label="'+esc(it.title)+' '+L("done")+'">'
     +'<div class="body"><div class="top"><div><div class="title">'+badge(it)+title+'</div>'
     +(sub?'<div class="hi">'+sub+'</div>':'')
-    +'<div class="scheme">'+it.scheme_name+'</div></div>'+cash+'</div>'+blk+docs+note+'</div></div>';
+    +'<div class="scheme">'+it.scheme_name+'</div></div>'+cash+'</div>'+blk+where+grv+docs+note+btns+'</div></div>';
 }
 
 function render(r){
@@ -350,6 +503,9 @@ function render(r){
   document.getElementById("results").innerHTML=h;
 
   document.querySelectorAll(".cb").forEach(cb=>cb.addEventListener("change",e=>toggleClaim(e.target.dataset.cid,e.target.checked)));
+  document.querySelectorAll("[data-app]").forEach(b=>b.addEventListener("click",()=>markApplied(b.dataset.app)));
+  document.querySelectorAll("[data-recv]").forEach(b=>b.addEventListener("click",()=>markReceived(b.dataset.recv)));
+  document.querySelectorAll("[data-complain]").forEach(b=>b.addEventListener("click",()=>copyComplaint(b.dataset.complain)));
   document.getElementById("kbnote").textContent="Knowledge base v"+r.kb_version+" ("+r.kb_as_of+"). "
     +"Demo data — rules marked “verify” must be confirmed against current government orders. Not medical or legal advice.";
 }
@@ -357,8 +513,36 @@ function render(r){
 function toggleClaim(cid,on){
   current.claimed=current.claimed.filter(x=>x!==cid);
   if(on)current.claimed.push(cid);
-  if(current.id)persist();
+  persistCurrent();
   run();
+}
+function markApplied(cid){
+  current.applied=current.applied||{};
+  current.applied[cid]=today();
+  persistCurrent();
+  run();
+}
+function markReceived(cid){
+  if(current.applied)delete current.applied[cid];
+  toggleClaim(cid,true);
+}
+function complaintText(cid){
+  const r=window._last;
+  const it=r&&r.timeline.find(x=>x.component_id===cid);
+  if(!it)return"";
+  return "COMPLAINT — "+it.scheme_name
+    +"\nBenefit: "+it.title+(it.cash_inr?" ("+rupees(it.cash_inr)+")":"")
+    +"\nBeneficiary: "+(current.name||"(mother)")+", "+(r.profile.state_name||"")
+    +"\nApplied on "+it.applied_date+" — "+it.days_since_applied+" days ago; benefit still not received."
+    +"\nEscalation: "+(it.grievance||"block office")
+    +"\nRequesting urgent action as per scheme guidelines. (Generated by Sahej)";
+}
+function copyComplaint(cid){
+  const t=complaintText(cid);
+  if(!t)return;
+  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject())
+    .then(()=>alert("Complaint copied — paste into WhatsApp / CPGRAMS."))
+    .catch(()=>prompt("Copy this complaint:",t));
 }
 
 function renderCaseload(){
@@ -375,7 +559,7 @@ function renderCaseload(){
   });
   el.querySelectorAll(".del").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();delMother(b.dataset.del);}));
 }
-function selectMother(id){const m=caseload.find(x=>x.id===id);if(!m)return;current=JSON.parse(JSON.stringify(m));loadIntoForm();renderCaseload();run();}
+function selectMother(id){const m=caseload.find(x=>x.id===id);if(!m)return;current=migrate(JSON.parse(JSON.stringify(m)));loadIntoForm();renderCaseload();setView("mother");}
 function delMother(id){
   const m=caseload.find(x=>x.id===id);
   if(!confirm("Remove "+((m&&m.name)||"this mother")+" from the caseload? This cannot be undone."))return;
@@ -403,10 +587,53 @@ function shareText(){
 }
 
 // events
-document.getElementById("form").addEventListener("input",()=>{formToCurrent();if(current.id){const i=caseload.findIndex(x=>x.id===current.id);if(i>=0){caseload[i]=JSON.parse(JSON.stringify(current));persist();}}run();});
-document.getElementById("saveBtn").addEventListener("click",saveMother);
-document.getElementById("newBtn").addEventListener("click",()=>{current=newMother();loadIntoForm();renderCaseload();run();});
-document.getElementById("langBtn").addEventListener("click",()=>{lang=lang==="en"?"hi":"en";applyLang();run();});
+document.getElementById("form").addEventListener("input",()=>{formToCurrent();persistCurrent();if(view!=="mother")setView("mother");else run();});
+document.getElementById("saveBtn").addEventListener("click",()=>{saveMother();refresh();});
+document.getElementById("newBtn").addEventListener("click",()=>{current=newMother();loadIntoForm();renderCaseload();setView("mother");});
+document.getElementById("langBtn").addEventListener("click",()=>{lang=lang==="en"?"hi":"en";applyLang();refresh();});
+document.getElementById("tabToday").addEventListener("click",()=>setView("today"));
+document.getElementById("tabMother").addEventListener("click",()=>setView("mother"));
+
+// data tools
+function download(name,text,type){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([text],{type}));
+  a.download=name;a.click();URL.revokeObjectURL(a.href);
+}
+document.getElementById("backupBtn").addEventListener("click",()=>{
+  download("sahej-caseload-"+today()+".json",JSON.stringify(caseload,null,2),"application/json");});
+document.getElementById("restoreBtn").addEventListener("click",()=>document.getElementById("restoreFile").click());
+document.getElementById("restoreFile").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const data=JSON.parse(rd.result);
+      if(!Array.isArray(data))throw new Error("not a caseload file");
+      if(!confirm("Replace the current caseload ("+caseload.length+" mothers) with "+data.length+" from this backup?"))return;
+      caseload=data.map(migrate);persist();
+      current=newMother();loadIntoForm();renderCaseload();setView(caseload.length?"today":"mother");
+    }catch(err){alert("Could not read backup: "+err.message);}
+    finally{e.target.value="";}
+  };
+  rd.readAsText(f);
+});
+document.getElementById("csvBtn").addEventListener("click",async()=>{
+  if(!caseload.length){alert(L("planEmpty"));return;}
+  try{
+    const mothers=caseload.map(m=>({id:m.id,name:m.name,profile:flatten(m)}));
+    const res=await fetch("/api/plan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mothers})});
+    const pl=await res.json();
+    if(!res.ok)throw new Error(pl.error||"error");
+    const rows=[["name","state","birth_date","day","visit_today","overdue","urgent","stuck","applied","outstanding","remaining_cash_inr"]];
+    pl.plan.forEach(en=>{
+      const m=caseload.find(x=>x.id===en.id)||{profile:{}};
+      rows.push([en.name,m.profile.state||"",m.profile.birth_date||"",en.day,en.visit_today,
+        en.overdue,en.urgent,en.stuck,en.applied,en.outstanding,en.remaining_cash_inr]);});
+    download("sahej-report-"+today()+".csv",
+      rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\n"),"text/csv");
+  }catch(err){alert("Report failed: "+err.message);}
+});
 document.getElementById("printBtn").addEventListener("click",()=>window.print());
 document.getElementById("shareBtn").addEventListener("click",()=>{
   const t=shareText();

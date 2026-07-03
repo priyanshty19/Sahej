@@ -101,7 +101,24 @@ PROFILE_DEFAULTS = {
     "has_aadhaar": True,
     "has_bank_account": True,
     "claimed": [],                 # component ids already received/done
+    "applied": {},                 # component id -> application date (YYYY-MM-DD)
 }
+
+STUCK_AFTER_DAYS = 45  # applied but unpaid this long -> escalate
+
+
+def _parse_applied(raw):
+    """Accept {'cid': 'YYYY-MM-DD'} or 'cid:YYYY-MM-DD,cid2:...' -> dict."""
+    if not raw:
+        return {}
+    if isinstance(raw, dict):
+        return dict(raw)
+    out = {}
+    for part in str(raw).split(","):
+        if ":" in part:
+            cid, _, d = part.partition(":")
+            out[cid.strip()] = d.strip()
+    return out
 
 
 def _state_index(kb):
@@ -170,6 +187,14 @@ def build_profile(raw, kb, as_of=None):
     p["state_name"] = state.get("name", p.get("state"))
     p["is_migrant"] = bool(p.get("delivery_state") and p.get("delivery_state") != p.get("state"))
     p["claimed"] = list(p.get("claimed") or [])
+    applied = {}
+    for cid, d in _parse_applied(p.get("applied")).items():
+        try:
+            ad = datetime.strptime(d, "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            raise ProfileError(f"invalid applied date for '{cid}' — expected YYYY-MM-DD")
+        applied[cid] = {"date": ad.isoformat(), "days_ago": max(0, (as_of - ad).days)}
+    p["applied"] = applied
     return p
 
 
@@ -253,14 +278,18 @@ def resolve(raw_profile, kb=None, as_of=None):
                 "is_gateway": bool(comp.get("is_gateway")), "sensitive": bool(comp.get("sensitive")),
                 "note": comp.get("note"), "confidence": scheme.get("confidence"),
                 "needs_verification": needs_verify, "source_urls": scheme.get("source_urls", []),
+                "apply_at": scheme.get("apply_at"), "apply_via": scheme.get("apply_via"),
+                "grievance": scheme.get("grievance"),
                 "done": done, "blocked_by": [], "status": "done" if done else "upcoming",
+                "applied_date": None, "days_since_applied": None, "stuck": False,
             })
             if needs_verify and not done:
                 flagged.append({"scheme": scheme["name"], "title": comp["title"]})
 
-    # Second pass: blocking + status now that we know what's claimed.
+    # Second pass: blocking + status now that we know what's claimed/applied.
+    applied_map = profile["applied"]
     total_cash = remaining_cash = 0
-    overdue, urgent = [], []
+    overdue, urgent, stuck = [], [], []
     for it in timeline:
         total_cash += it["cash_inr"]
         blocked = [comp_title.get(dep.split(".")[-1], dep.split(".")[-1])
@@ -270,6 +299,15 @@ def resolve(raw_profile, kb=None, as_of=None):
             it["status"] = "done"
             continue
         remaining_cash += it["cash_inr"]
+        ap = applied_map.get(it["component_id"])
+        if ap:
+            it["status"] = "applied"
+            it["applied_date"] = ap["date"]
+            it["days_since_applied"] = ap["days_ago"]
+            if ap["days_ago"] >= STUCK_AFTER_DAYS:
+                it["stuck"] = True
+                stuck.append(it)
+            continue
         dr = it["days_remaining"]
         if blocked:
             it["status"] = "blocked"
@@ -315,6 +353,8 @@ def resolve(raw_profile, kb=None, as_of=None):
         alerts.append({"level": "sensitive", "text": "Sensitive case — handle with care. Only entitlements that apply are shown; lead with support, not paperwork."})
     if overdue:
         alerts.append({"level": "overdue", "text": f"{len(overdue)} action(s) past deadline — act today and check if a late process still applies."})
+    if stuck:
+        alerts.append({"level": "stuck", "text": f"{len(stuck)} application(s) pending over {STUCK_AFTER_DAYS} days without payment — escalate via the grievance channel on the card."})
     if urgent:
         alerts.append({"level": "urgent", "text": f"{len(urgent)} action(s) due within 3 days."})
 
@@ -327,6 +367,10 @@ def resolve(raw_profile, kb=None, as_of=None):
         "summary": {
             "eligible_count": len(timeline),
             "outstanding_count": sum(1 for it in timeline if not it["done"]),
+            "applied_count": sum(1 for it in timeline if it["status"] == "applied"),
+            "stuck_count": len(stuck),
+            "overdue_count": len(overdue),
+            "urgent_count": len(urgent),
             "total_cash_inr": total_cash,
             "remaining_cash_inr": remaining_cash,
             "needs_verification_count": len(flagged),
@@ -343,6 +387,57 @@ def resolve(raw_profile, kb=None, as_of=None):
         "kb_version": kb.get("version"),
         "kb_as_of": kb.get("as_of"),
     }
+
+
+def work_plan(mothers, kb=None, as_of=None):
+    """Aggregate a caseload into the ASHA's daily work plan.
+
+    mothers: [{"id": ..., "name": ..., "profile": {<flat resolve() profile>}}]
+    Returns entries sorted most-urgent-first with per-mother rollups + totals.
+    """
+    kb = kb or load_kb()
+    as_of = as_of or date.today()
+    visit_days = kb["asha_hbnc_visits"]["visit_days"]
+
+    entries, errors = [], []
+    totals = {"mothers": 0, "overdue": 0, "urgent": 0, "stuck": 0,
+              "visits_today": 0, "remaining_cash_inr": 0}
+
+    for m in mothers:
+        mid, name = m.get("id"), m.get("name") or "(unnamed)"
+        try:
+            r = resolve(m.get("profile") or {}, kb=kb, as_of=as_of)
+        except ProfileError as e:
+            errors.append({"id": mid, "name": name, "error": str(e)})
+            continue
+        s, days = r["summary"], r["profile"]["days_since_birth"]
+        visit_today = days in visit_days
+        next_visit = next((v for v in visit_days if v >= days), None)
+        top = [{"title": it["title"], "status": it["status"], "cash_inr": it["cash_inr"],
+                "deadline_day": it["deadline_day"]}
+               for it in r["timeline"]
+               if it["status"] in ("overdue", "urgent", "stuck", "upcoming", "applied")][:3]
+        score = (s["overdue_count"] * 100 + s["stuck_count"] * 60 + s["urgent_count"] * 30
+                 + (20 if visit_today else 0) + (1 if s["remaining_cash_inr"] else 0))
+        entries.append({
+            "id": mid, "name": name, "day": days, "visit_today": visit_today,
+            "next_visit_day": next_visit, "hbnc_complete": next_visit is None,
+            "overdue": s["overdue_count"], "urgent": s["urgent_count"],
+            "stuck": s["stuck_count"], "applied": s["applied_count"],
+            "outstanding": s["outstanding_count"],
+            "remaining_cash_inr": s["remaining_cash_inr"],
+            "sensitive": s["sensitive_mode"], "top_actions": top, "score": score,
+        })
+        totals["mothers"] += 1
+        totals["overdue"] += s["overdue_count"]
+        totals["urgent"] += s["urgent_count"]
+        totals["stuck"] += s["stuck_count"]
+        totals["visits_today"] += 1 if visit_today else 0
+        totals["remaining_cash_inr"] += s["remaining_cash_inr"]
+
+    entries.sort(key=lambda e: -e["score"])
+    return {"as_of": as_of.isoformat(), "plan": entries, "errors": errors,
+            "totals": totals, "visit_days": visit_days}
 
 
 def meta(kb=None):
@@ -443,11 +538,13 @@ def main():
     ap.add_argument("--no-aadhaar", dest="has_aadhaar", action="store_false")
     ap.add_argument("--no-bank", dest="has_bank_account", action="store_false")
     ap.add_argument("--claimed", default="", help="comma-separated component ids already received")
+    ap.add_argument("--applied", default="", help="cid:YYYY-MM-DD,... application dates")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
-    raw = {k: v for k, v in vars(args).items() if k not in ("asof", "json", "claimed")}
+    raw = {k: v for k, v in vars(args).items() if k not in ("asof", "json", "claimed", "applied")}
     raw["claimed"] = _csv(args.claimed)
+    raw["applied"] = args.applied
     as_of = datetime.strptime(args.asof, "%Y-%m-%d").date() if args.asof else None
     result = resolve(raw, as_of=as_of)
     if args.json:

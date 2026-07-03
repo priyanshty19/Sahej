@@ -29,6 +29,17 @@ def get(base, path, method="GET"):
         return e.code, dict(e.headers), e.read()
 
 
+def post(base, path, payload):
+    data = payload if isinstance(payload, bytes) else json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(base + path, data=data, method="POST",
+                                 headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return r.status, r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read()
+
+
 def run():
     srv, base = start_server()
     checks = []
@@ -74,6 +85,31 @@ def run():
 
         code, _, _ = get(base, "/healthz")
         chk("healthz -> 200", code == 200)
+
+        # Applied lifecycle over the GET API
+        code, _, body = get(base, "/api/resolve?state=BR&birth_date=2026-05-01&applied=jsy_delivery_cash:2026-05-10")
+        r = json.loads(body)
+        chk("resolve with applied param -> applied_count",
+            code == 200 and r["summary"]["applied_count"] == 1)
+
+        # POST /api/plan
+        code, body = post(base, "/api/plan", {"mothers": [
+            {"id": "a", "name": "Sunita", "profile": {"state": "BR", "birth_date": "2026-06-30"}},
+            {"id": "b", "name": "Broken", "profile": {"state": "XX"}},
+        ]})
+        pl = json.loads(body)
+        chk("POST /api/plan -> 200 with plan+totals",
+            code == 200 and len(pl["plan"]) == 1 and pl["totals"]["mothers"] == 1)
+        chk("plan isolates invalid mothers as errors", len(pl["errors"]) == 1)
+
+        code, body = post(base, "/api/plan", b"not json{")
+        chk("plan invalid JSON -> 400", code == 400 and "JSON" in json.loads(body)["error"])
+
+        code, body = post(base, "/api/plan", {"mothers": [{}] * 201})
+        chk("plan >200 mothers -> 400", code == 400)
+
+        code, body = post(base, "/nope", {"x": 1})
+        chk("POST unknown route -> 404", code == 404)
 
         # Static / PWA assets
         code, hdrs, body = get(base, "/manifest.webmanifest")

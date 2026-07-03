@@ -18,7 +18,10 @@ import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-from engine import resolve, meta, ProfileError
+from engine import resolve, meta, work_plan, ProfileError
+
+MAX_BODY = 262_144      # 256 KB — a caseload of hundreds fits well under this
+MAX_MOTHERS = 200
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
@@ -71,6 +74,7 @@ def _profile_from_query(qs):
             p[f] = _BOOL.get(str(v).lower(), f in ("has_aadhaar", "has_bank_account"))
     claimed = g("claimed", "")
     p["claimed"] = [c for c in claimed.split(",") if c] if claimed else []
+    p["applied"] = g("applied", "") or ""
     return p
 
 
@@ -146,6 +150,27 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_HEAD(self):
         self._route()
+
+    def do_POST(self):
+        if urlparse(self.path).path != "/api/plan":
+            return self._json(404, {"error": "not found"})
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+        except ValueError:
+            length = 0
+        if not 0 < length <= MAX_BODY:
+            return self._json(400, {"error": f"body required, max {MAX_BODY // 1024} KB"})
+        try:
+            body = json.loads(self.rfile.read(length).decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return self._json(400, {"error": "invalid JSON body"})
+        mothers = body.get("mothers") if isinstance(body, dict) else body
+        if not isinstance(mothers, list) or len(mothers) > MAX_MOTHERS:
+            return self._json(400, {"error": f"expected {{mothers: [...]}} with at most {MAX_MOTHERS} entries"})
+        try:
+            return self._json(200, work_plan(mothers))
+        except Exception:  # noqa: BLE001 — never leak internals
+            return self._json(500, {"error": "internal error — check server logs"})
 
 
 if __name__ == "__main__":
