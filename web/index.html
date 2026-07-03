@@ -173,11 +173,45 @@
 
   <!-- FORM -->
   <form class="panel form" id="form">
-    <h2 id="t-mother">This mother</h2>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h2 id="t-mother" style="margin:0">This mother</h2>
+      <button type="button" id="micBtn" class="abtn" hidden aria-label="Voice input">🎤 <span id="t-voice">Speak</span></button>
+    </div>
+    <div id="voiceOut" class="none" hidden style="margin:8px 0 0"></div>
+    <label id="l-event" for="life_event">Life event</label>
+    <select id="life_event">
+      <option value="childbirth">Childbirth</option>
+      <option value="death">Death in family</option>
+    </select>
     <label id="l-name" for="name">Name / ID</label>
     <input id="name" placeholder="e.g. Sunita (ward 4)" autocomplete="off" maxlength="60">
     <label id="l-state" for="state">Home state / UT</label>
     <select id="state"></select>
+
+    <div id="deathFields" hidden>
+      <div class="row">
+        <div><label id="l-ddate" for="d_death_date">Date of death</label><input type="date" id="d_death_date"></div>
+        <div><label id="l-darea" for="d_area">Area</label><select id="d_area"></select></div>
+      </div>
+      <div class="row">
+        <div><label id="l-decage" for="d_deceased_age_years">Deceased's age</label><input type="number" id="d_deceased_age_years" value="45" min="0" max="120"></div>
+        <div><label id="l-appage" for="d_applicant_age_years">Applicant's age</label><input type="number" id="d_applicant_age_years" value="40" min="10" max="110"></div>
+      </div>
+      <div class="row">
+        <div><label id="l-rel" for="d_relation_to_deceased">Applicant is</label><select id="d_relation_to_deceased"></select></div>
+        <div><label id="l-appsex" for="d_applicant_sex">Applicant sex</label><select id="d_applicant_sex"></select></div>
+      </div>
+      <div class="check"><input type="checkbox" id="d_bpl"><label for="d_bpl" id="l-dbpl" style="margin:0">BPL household</label></div>
+      <div class="check"><input type="checkbox" id="d_was_breadwinner" checked><label for="d_was_breadwinner" id="l-bread" style="margin:0">Was the primary breadwinner</label></div>
+      <div class="check"><input type="checkbox" id="d_accidental_death"><label for="d_accidental_death" id="l-acc" style="margin:0">Accidental death</label></div>
+      <div class="check"><input type="checkbox" id="d_deceased_had_bank_account" checked><label for="d_deceased_had_bank_account" id="l-decbank" style="margin:0">Deceased had a bank account</label></div>
+      <div class="check"><input type="checkbox" id="d_formal_sector"><label for="d_formal_sector" id="l-formal" style="margin:0">Formal-sector worker (EPF/ESIC)</label></div>
+      <div class="check"><input type="checkbox" id="d_construction_worker"><label for="d_construction_worker" id="l-bocw" style="margin:0">Registered construction worker</label></div>
+      <div class="check"><input type="checkbox" id="d_has_aadhaar" checked><label for="d_has_aadhaar" id="l-daadhaar" style="margin:0">Applicant has Aadhaar</label></div>
+      <div class="check"><input type="checkbox" id="d_has_bank_account" checked><label for="d_has_bank_account" id="l-dbank" style="margin:0">Applicant has a bank account</label></div>
+    </div>
+
+    <div id="cbFields">
     <div class="row">
       <div><label id="l-area" for="area">Area</label><select id="area"></select></div>
       <div><label id="l-delivery" for="delivery_type">Delivery</label><select id="delivery_type"></select></div>
@@ -211,6 +245,7 @@
       <div class="check"><input type="checkbox" id="has_aadhaar" checked><label for="has_aadhaar" id="l-aadhaar" style="margin:0">Has Aadhaar</label></div>
       <div class="check"><input type="checkbox" id="has_bank_account" checked><label for="has_bank_account" id="l-bank" style="margin:0">Has Aadhaar-linked bank account</label></div>
     </details>
+    </div><!-- /cbFields -->
 
     <button type="button" class="btn" id="saveBtn">Save to caseload</button>
   </form>
@@ -231,6 +266,11 @@ const FIELDS = ["state","delivery_state","area","delivery_type","child_number","
   "mother_age_years","birth_date","birth_outcome","maternal_outcome","category"];
 const BOOLS = ["bpl","premature","low_birth_weight","single_mother","mother_disability",
   "child_disability","govt_employee","has_aadhaar","has_bank_account"];
+// Death-event fields: element id = "d_" + field name; "state" is shared.
+const DFIELDS = ["death_date","area","relation_to_deceased","applicant_sex",
+  "deceased_age_years","applicant_age_years"];
+const DBOOLS = ["bpl","was_breadwinner","accidental_death","deceased_had_bank_account",
+  "formal_sector","construction_worker","has_aadhaar","has_bank_account"];
 
 const OPT_LABELS = {
   delivery_type:{institutional_public:"Public facility",institutional_private_empanelled:"Private (empanelled)",institutional_private:"Private (other)",home:"At home"},
@@ -239,6 +279,8 @@ const OPT_LABELS = {
   birth_outcome:{live:"Live birth",stillbirth:"Stillbirth",neonatal_death:"Newborn died"},
   maternal_outcome:{alive:"Mother alive",deceased:"Mother died"},
   area:{rural:"Rural",urban:"Urban"},
+  relation_to_deceased:{spouse:"Spouse",child:"Child",parent:"Parent",sibling:"Sibling",other:"Other"},
+  applicant_sex:{female:"Female",male:"Male"},
 };
 const I18N = {
   en:{title:"Sahej · सहज",tag:"A benefit co-pilot for the ASHA worker — every rupee a new mother is owed, on the days you already visit.",
@@ -254,7 +296,14 @@ const I18N = {
     stuckTag:"stuck",applyAt:"Apply at",grievanceL:"Escalate to",complaint:"Copy complaint",
     backup:"Backup",restore:"Restore",csv:"Report CSV",
     planEmpty:"No mothers in the caseload yet — fill the form and Save.",
-    allCaught:"All caught up — no visits or urgent items today.",toApply:"to claim"},
+    allCaught:"All caught up — no visits or urgent items today.",toApply:"to claim",
+    event:"Life event",eventCb:"Childbirth",eventDeath:"Death in family",demo:"Load demo caseload",
+    voice:"Speak",understood:"Understood",noVoice:"Voice input needs Chrome on Android/desktop.",
+    ddate:"Date of death",darea:"Area",decage:"Deceased's age",appage:"Applicant's age",
+    rel:"Applicant is",appsex:"Applicant sex",dbpl:"BPL household",bread:"Was the primary breadwinner",
+    acc:"Accidental death",decbank:"Deceased had a bank account",formal:"Formal-sector worker (EPF/ESIC)",
+    bocw:"Registered construction worker",daadhaar:"Applicant has Aadhaar",dbank:"Applicant has a bank account",
+    followup:"Follow-up · day",case:"This case"},
   hi:{title:"सहज · Sahej",tag:"आशा कार्यकर्ता की सहायक — हर नई माँ का हक़, उन्हीं दिनों पर जब आप पहले से जाती हैं।",
     caseload:"मेरी सूची",mother:"यह माँ",name:"नाम / पहचान",state:"राज्य / केंद्रशासित",area:"क्षेत्र",delivery:"प्रसव",
     childnum:"संतान क्रमांक",childsex:"शिशु लिंग",age:"माँ की उम्र",birth:"जन्म तिथि",outcome:"जन्म परिणाम",moutcome:"माँ",
@@ -268,18 +317,36 @@ const I18N = {
     stuckTag:"अटका",applyAt:"आवेदन कहाँ",grievanceL:"शिकायत यहाँ",complaint:"शिकायत कॉपी करें",
     backup:"बैकअप",restore:"वापस लाएँ",csv:"रिपोर्ट CSV",
     planEmpty:"सूची में अभी कोई माँ नहीं — फ़ॉर्म भरकर सहेजें।",
-    allCaught:"सब अद्यतन — आज कोई भेंट या तात्कालिक कार्य नहीं।",toApply:"दावा शेष"},
+    allCaught:"सब अद्यतन — आज कोई भेंट या तात्कालिक कार्य नहीं।",toApply:"दावा शेष",
+    event:"जीवन घटना",eventCb:"शिशु जन्म",eventDeath:"परिवार में मृत्यु",demo:"डेमो सूची भरें",
+    voice:"बोलें",understood:"समझा",noVoice:"वॉयस के लिए Chrome (Android/डेस्कटॉप) चाहिए।",
+    ddate:"मृत्यु तिथि",darea:"क्षेत्र",decage:"मृतक की उम्र",appage:"आवेदक की उम्र",
+    rel:"आवेदक हैं",appsex:"आवेदक लिंग",dbpl:"बीपीएल परिवार",bread:"मुख्य कमाने वाले थे",
+    acc:"दुर्घटना से मृत्यु",decbank:"मृतक का बैंक खाता था",formal:"संगठित क्षेत्र (EPF/ESIC)",
+    bocw:"पंजीकृत निर्माण श्रमिक",daadhaar:"आवेदक के पास आधार है",dbank:"आवेदक का बैंक खाता है",
+    followup:"अनुवर्ती · दिन",case:"यह प्रकरण"},
 };
 
 let META=null, lang="en";
 let current = newMother();
 let caseload = load();
 
-function today(){return new Date().toISOString().slice(0,10);}
-function newMother(){return {id:null,name:"",profile:{state:"BR",area:"rural",delivery_type:"institutional_public",
-  child_number:1,child_sex:"girl",mother_age_years:24,birth_date:today(),birth_outcome:"live",maternal_outcome:"alive",
-  category:"general",delivery_state:""},bools:{has_aadhaar:true,has_bank_account:true},claimed:[],applied:{}};}
-function migrate(m){if(!m.applied)m.applied={};if(!m.claimed)m.claimed=[];return m;}
+function localISO(d){return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
+function today(){return localISO(new Date());}
+function daysAgo(n){const d=new Date();d.setDate(d.getDate()-n);return localISO(d);}
+function newMother(event){
+  event=event||"childbirth";
+  if(event==="death")return {id:null,name:"",event:"death",
+    profile:{state:"BR",area:"rural",death_date:today(),relation_to_deceased:"spouse",applicant_sex:"female",
+      deceased_age_years:45,applicant_age_years:40},
+    bools:{was_breadwinner:true,deceased_had_bank_account:true,has_aadhaar:true,has_bank_account:true},
+    claimed:[],applied:{}};
+  return {id:null,name:"",event:"childbirth",profile:{state:"BR",area:"rural",delivery_type:"institutional_public",
+    child_number:1,child_sex:"girl",mother_age_years:24,birth_date:today(),birth_outcome:"live",maternal_outcome:"alive",
+    category:"general",delivery_state:""},bools:{has_aadhaar:true,has_bank_account:true},claimed:[],applied:{}};
+}
+function migrate(m){if(!m.applied)m.applied={};if(!m.claimed)m.claimed=[];if(!m.event)m.event="childbirth";return m;}
+function fieldSets(ev){return ev==="death"?{f:DFIELDS,b:DBOOLS,prefix:"d_"}:{f:FIELDS,b:BOOLS,prefix:""};}
 function load(){try{return JSON.parse(localStorage.getItem("sahej_caseload")||"[]")}catch(e){return[]}}
 function persist(){try{localStorage.setItem("sahej_caseload",JSON.stringify(caseload));}catch(e){/* storage full/blocked — keep working in memory */}}
 function rupees(n){return "₹"+Number(n).toLocaleString("en-IN");}
@@ -290,6 +357,7 @@ function optLabel(field,val){return (OPT_LABELS[field]&&OPT_LABELS[field][val])|
 function fillSelect(el,values,field){el.innerHTML=values.map(v=>`<option value="${v}">${optLabel(field,v)}</option>`).join("");}
 
 async function init(){
+  lang=localStorage.getItem("sahej_lang")==="hi"?"hi":"en";
   META = await (await fetch("/api/meta")).json();
   const states = META.states;
   const stateOpts = states.map(s=>`<option value="${s.code}">${s.name}${s.lps?" (LPS)":""}</option>`).join("");
@@ -301,6 +369,12 @@ async function init(){
   fillSelect(document.getElementById("birth_outcome"),META.options.birth_outcome,"birth_outcome");
   fillSelect(document.getElementById("maternal_outcome"),META.options.maternal_outcome,"maternal_outcome");
   fillSelect(document.getElementById("category"),META.options.category,"category");
+  const dOpts=(META.events&&META.events.death&&META.events.death.options)||{};
+  fillSelect(document.getElementById("d_area"),dOpts.area||["rural","urban"],"area");
+  fillSelect(document.getElementById("d_relation_to_deceased"),dOpts.relation_to_deceased||["spouse","child","parent","sibling","other"],"relation_to_deceased");
+  fillSelect(document.getElementById("d_applicant_sex"),dOpts.applicant_sex||["female","male"],"applicant_sex");
+  document.getElementById("d_death_date").value=today();
+  setupVoice();
   caseload=caseload.map(migrate);
   applyLang(); loadIntoForm(); renderCaseload();
   setView(caseload.length?"today":"mother");
@@ -313,7 +387,12 @@ function applyLang(){
   const map={"t-caseload":"caseload","t-mother":"mother","l-name":"name","l-state":"state","l-area":"area","l-delivery":"delivery",
     "l-childnum":"childnum","l-childsex":"childsex","l-age":"age","l-birth":"birth","l-outcome":"outcome","l-moutcome":"moutcome",
     "t-more":"more","l-cat":"cat","l-dstate":"dstate","l-bpl":"bpl","l-prem":"prem","l-lbw":"lbw","l-single":"single",
-    "l-mdis":"mdis","l-cdis":"cdis","l-govt":"govt","l-aadhaar":"aadhaar","l-bank":"bank"};
+    "l-mdis":"mdis","l-cdis":"cdis","l-govt":"govt","l-aadhaar":"aadhaar","l-bank":"bank",
+    "l-event":"event","t-voice":"voice","l-ddate":"ddate","l-darea":"darea","l-decage":"decage","l-appage":"appage",
+    "l-rel":"rel","l-appsex":"appsex","l-dbpl":"dbpl","l-bread":"bread","l-acc":"acc","l-decbank":"decbank",
+    "l-formal":"formal","l-bocw":"bocw","l-daadhaar":"daadhaar","l-dbank":"dbank"};
+  const evSel=document.getElementById("life_event");
+  evSel.options[0].text=L("eventCb"); evSel.options[1].text=L("eventDeath");
   for(const id in map){const el=document.getElementById(id);if(el)el.textContent=L(map[id]);}
   document.getElementById("saveBtn").textContent=L("save");
   document.getElementById("newBtn").textContent=L("newm");
@@ -324,20 +403,31 @@ function applyLang(){
   document.getElementById("csvBtn").textContent=L("csv");
 }
 
+function syncEventUI(){
+  const ev=current.event||"childbirth";
+  document.getElementById("life_event").value=ev;
+  document.getElementById("cbFields").hidden=(ev==="death");
+  document.getElementById("deathFields").hidden=(ev!=="death");
+}
 function loadIntoForm(){
-  const p=current.profile, b=current.bools;
+  const p=current.profile, b=current.bools, fs=fieldSets(current.event);
+  syncEventUI();
   document.getElementById("name").value=current.name||"";
-  FIELDS.forEach(f=>{const el=document.getElementById(f);if(el&&p[f]!==undefined)el.value=p[f];});
-  BOOLS.forEach(f=>{const el=document.getElementById(f);if(el)el.checked=!!b[f];});
+  document.getElementById("state").value=p.state||"BR";
+  fs.f.forEach(f=>{const el=document.getElementById(fs.prefix+f);if(el&&p[f]!==undefined)el.value=p[f];});
+  fs.b.forEach(f=>{const el=document.getElementById(fs.prefix+f);if(el)el.checked=!!b[f];});
 }
 function formToCurrent(){
+  const fs=fieldSets(current.event);
   current.name=document.getElementById("name").value;
-  FIELDS.forEach(f=>{const el=document.getElementById(f);if(el)current.profile[f]=el.value;});
-  current.bools={}; BOOLS.forEach(f=>{current.bools[f]=document.getElementById(f).checked;});
+  current.profile.state=document.getElementById("state").value;
+  fs.f.forEach(f=>{const el=document.getElementById(fs.prefix+f);if(el)current.profile[f]=el.value;});
+  current.bools={}; fs.b.forEach(f=>{const el=document.getElementById(fs.prefix+f);if(el)current.bools[f]=el.checked;});
 }
 
 function buildQuery(){
   const q=new URLSearchParams();
+  q.set("life_event",current.event||"childbirth");
   for(const k in current.profile){if(current.profile[k]!=="")q.set(k,current.profile[k]);}
   for(const k in current.bools){q.set(k,current.bools[k]?"true":"false");}
   if(current.claimed.length)q.set("claimed",current.claimed.join(","));
@@ -379,6 +469,7 @@ function flatten(m){
   const p={...m.profile};
   for(const k in (m.bools||{}))p[k]=m.bools[k];
   p.claimed=m.claimed||[]; p.applied=m.applied||{};
+  p.life_event=m.event||"childbirth";
   for(const k in p)if(p[k]==="")delete p[k];
   return p;
 }
@@ -408,6 +499,7 @@ function renderPlan(pl){
     h+='<div class="alert a-warn">'+L("allCaught")+'</div>';
   pl.plan.forEach(e=>{
     const chips=[];
+    if(e.event==="death")chips.push('<span class="chip2 c-stuck" style="background:var(--purple-soft);color:var(--purple)">'+L("eventDeath")+'</span>');
     if(e.visit_today)chips.push('<span class="chip2 c-visit">'+L("visitToday")+'</span>');
     if(e.overdue)chips.push('<span class="chip2 c-over">'+e.overdue+' overdue</span>');
     if(e.stuck)chips.push('<span class="chip2 c-stuck">'+e.stuck+' '+L("stuckTag")+'</span>');
@@ -483,16 +575,24 @@ function render(r){
     +'<div class="stat"><div class="big">'+rupees(r.summary.remaining_cash_inr)+'</div><div class="lbl">'+L("remaining")+'</div></div>'
     +'<div class="stat"><div class="big">'+r.summary.outstanding_count+'</div><div class="lbl">'+L("outstanding")+'</div></div></div>';
   const p=r.profile;
-  h+='<div class="profile-line">'+(current.name?'<b>'+esc(current.name)+'</b> · ':'')+esc(p.state_name)+(p.state_lps?' (LPS)':' (HPS)')
-    +' · '+optLabel("area",p.area)+' · '+optLabel("delivery_type",p.delivery_type)+' · '+optLabel("birth_outcome",p.birth_outcome)
-    +' · born '+p.birth_date+' (day '+p.days_since_birth+')</div>';
+  if(r.life_event==="death"){
+    h+='<div class="profile-line">'+(current.name?'<b>'+esc(current.name)+'</b> · ':'')+esc(p.state_name)
+      +' · '+optLabel("area",p.area)+' · '+L("eventDeath")+' · '+optLabel("relation_to_deceased",p.relation_to_deceased)
+      +' · '+esc(p.death_date||'')+' (day '+p.days_since_birth+')</div>';
+  }else{
+    h+='<div class="profile-line">'+(current.name?'<b>'+esc(current.name)+'</b> · ':'')+esc(p.state_name)+(p.state_lps?' (LPS)':' (HPS)')
+      +' · '+optLabel("area",p.area)+' · '+optLabel("delivery_type",p.delivery_type)+' · '+optLabel("birth_outcome",p.birth_outcome)
+      +' · born '+p.birth_date+' (day '+p.days_since_birth+')</div>';
+  }
 
   r.alerts.forEach(a=>{h+='<div class="alert a-'+a.level+'">'+a.text+'</div>';});
   if(r.next_action){const n=r.next_action;h+='<div class="alert a-warn"><b>'+L("nextAction")+':</b> '+n.title
     +(n.days_remaining!=null?' — '+(n.days_remaining<0?Math.abs(n.days_remaining)+' days overdue':'in '+n.days_remaining+' days'):'')+'</div>';}
 
   const order=[0,...r.visit_days,"ongoing"];
-  const vlabel=k=>k===0?"At delivery / first contact":k==="ongoing"?"Ongoing — confirm it was claimed":"ASHA home visit · day "+k;
+  const vlabel=r.life_event==="death"
+    ?(k=>k===0?"First contact":k==="ongoing"?"Ongoing — no hard date":L("followup")+" "+k)
+    :(k=>k===0?"At delivery / first contact":k==="ongoing"?"Ongoing — confirm it was claimed":"ASHA home visit · day "+k);
   order.forEach(k=>{const items=r.by_asha_visit[k];if(items&&items.length){
     h+='<div class="visit"><div class="dot"></div><h3>'+vlabel(k)+'</h3>'+items.map(cardHTML).join("")+'</div>';}});
 
@@ -547,11 +647,18 @@ function copyComplaint(cid){
 
 function renderCaseload(){
   const el=document.getElementById("caseList");
-  if(!caseload.length){el.innerHTML='<div class="empty">No mothers saved yet. Fill the form and Save.</div>';return;}
+  if(!caseload.length){
+    el.innerHTML='<div class="empty">No mothers saved yet. Fill the form and Save.</div>'
+      +'<button class="btn sec" id="demoBtn" style="margin-top:4px">'+L("demo")+'</button>';
+    const db=document.getElementById("demoBtn");
+    if(db)db.addEventListener("click",loadDemo);
+    return;
+  }
   el.innerHTML=caseload.map(m=>{
     const done=(m.claimed||[]).length;
+    const tag=(m.event==="death"?L("eventDeath"):esc(m.profile.state||""));
     return '<div class="case '+(m.id===current.id?'active':'')+'" data-id="'+esc(m.id)+'" role="button" tabindex="0">'
-      +'<div>'+esc(m.name||"(unnamed)")+'<small>'+esc(m.profile.state||"")+' · '+done+' done</small></div>'
+      +'<div>'+esc(m.name||"(unnamed)")+'<small>'+tag+' · '+done+' done</small></div>'
       +'<button class="del" data-del="'+esc(m.id)+'" aria-label="Remove '+esc(m.name||"this mother")+' from caseload">✕</button></div>';}).join("");
   el.querySelectorAll(".case").forEach(c=>{
     c.addEventListener("click",e=>{if(e.target.dataset.del)return; selectMother(c.dataset.id);});
@@ -586,11 +693,117 @@ function shareText(){
   return lines.join("\n");
 }
 
+// ---- demo caseload (dates computed relative to today so it always demos well) ----
+function loadDemo(){
+  const mk=(o)=>Object.assign(newMother(o.event),o);
+  caseload=[
+    mk({id:"demo1",name:"Sunita Devi",profile:{state:"BR",area:"rural",delivery_type:"institutional_public",
+      child_number:1,child_sex:"girl",mother_age_years:24,birth_date:daysAgo(3),birth_outcome:"live",
+      maternal_outcome:"alive",category:"general",delivery_state:""}}),
+    mk({id:"demo2",name:"Meena Kumari",profile:{state:"MH",area:"urban",delivery_type:"institutional_public",
+      child_number:2,child_sex:"girl",mother_age_years:29,birth_date:daysAgo(44),birth_outcome:"live",
+      maternal_outcome:"alive",category:"sc",delivery_state:""},bools:{bpl:true,has_aadhaar:true,has_bank_account:true}}),
+    mk({id:"demo3",name:"Radha Singh",profile:{state:"UP",area:"rural",delivery_type:"institutional_public",
+      child_number:1,child_sex:"boy",mother_age_years:26,birth_date:daysAgo(64),birth_outcome:"live",
+      maternal_outcome:"alive",category:"general",delivery_state:""},
+      claimed:["register_birth","birth_doses"],applied:{"jsy_delivery_cash":daysAgo(54)}}),
+    mk({id:"demo4",name:"Kamla (family of Ramesh)",event:"death",profile:{state:"BR",area:"rural",
+      death_date:daysAgo(10),relation_to_deceased:"spouse",applicant_sex:"female",
+      deceased_age_years:42,applicant_age_years:41},
+      bools:{bpl:true,was_breadwinner:true,accidental_death:true,deceased_had_bank_account:true,
+        construction_worker:true,has_aadhaar:true,has_bank_account:true}}),
+  ].map(migrate);
+  persist();renderCaseload();setView("today");
+}
+
+// ---- voice intake (Web Speech API; hi-IN / en-IN) ----
+const HI_STATES={AP:"आंध्र",AR:"अरुणाचल",AS:"असम",BR:"बिहार",CG:"छत्तीसगढ़",GA:"गोवा",GJ:"गुजरात",
+  HR:"हरियाणा",HP:"हिमाचल",JH:"झारखंड",KA:"कर्नाटक",KL:"केरल",MP:"मध्य प्रदेश",MH:"महाराष्ट्र",
+  MN:"मणिपुर",ML:"मेघालय",MZ:"मिज़ोरम",NL:"नागालैंड",OR:"ओडिशा",PB:"पंजाब",RJ:"राजस्थान",SK:"सिक्किम",
+  TN:"तमिलनाडु",TG:"तेलंगाना",TR:"त्रिपुरा",UP:"उत्तर प्रदेश",UK:"उत्तराखंड",WB:"बंगाल",
+  AN:"अंडमान",CH:"चंडीगढ़",DH:"दादरा",DL:"दिल्ली",JK:"जम्मू",LA:"लद्दाख",LD:"लक्षद्वीप",PY:"पुडुचेरी"};
+const HI_NUM={"एक":1,"दो":2,"तीन":3,"चार":4,"पांच":5,"पाँच":5,"छह":6,"सात":7,"आठ":8,"नौ":9,"दस":10,
+  one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10};
+function num(w){if(/^\d+$/.test(w))return parseInt(w,10);return HI_NUM[w]!==undefined?HI_NUM[w]:null;}
+
+function parseUtterance(t){
+  t=" "+t.toLowerCase().trim()+" ";
+  const out={}, got=[];
+  // state (english name or hindi alias)
+  for(const s of (META?META.states:[])){
+    if(t.includes(s.name.toLowerCase())||(HI_STATES[s.code]&&t.includes(HI_STATES[s.code].toLowerCase()))){
+      out.state=s.code;got.push(s.name);break;}
+  }
+  // child number
+  if(/पहल|first/.test(t)){out.child_number=1;got.push("child #1");}
+  else if(/दूसर|second/.test(t)){out.child_number=2;got.push("child #2");}
+  else if(/तीसर|third/.test(t)){out.child_number=3;got.push("child #3");}
+  // sex
+  if(/लड़की|लडकी|बेटी|girl|daughter/.test(t)){out.child_sex="girl";got.push("girl");}
+  else if(/लड़का|लडका|बेटा|boy|son/.test(t)){out.child_sex="boy";got.push("boy");}
+  // delivery place
+  if(/घर पर|घर में|at home|home delivery/.test(t)){out.delivery_type="home";got.push("home delivery");}
+  else if(/प्राइवेट|निजी|private/.test(t)){out.delivery_type="institutional_private";got.push("private hospital");}
+  else if(/अस्पताल|सरकारी|hospital|phc|health cent/.test(t)){out.delivery_type="institutional_public";got.push("public facility");}
+  // when
+  let m=t.match(/(\d+|[^\s]+)\s*(?:दिन पहले|days? ago)/);
+  if(m){const n=num(m[1]);if(n!=null){out.birth_date=daysAgo(n);got.push(n+" days ago");}}
+  else if(/परसों/.test(t)){out.birth_date=daysAgo(2);got.push("2 days ago");}
+  else if(/कल|yesterday/.test(t)){out.birth_date=daysAgo(1);got.push("yesterday");}
+  else if(/आज|today/.test(t)){out.birth_date=today();got.push("today");}
+  // age
+  m=t.match(/(?:उम्र|age)\s*(\d+)/)||t.match(/(\d+)\s*(?:साल|वर्ष|years?)/);
+  if(m){out.mother_age_years=parseInt(m[1],10);got.push("age "+m[1]);}
+  // area
+  if(/शहर|urban|city/.test(t)){out.area="urban";got.push("urban");}
+  else if(/गांव|गाँव|देहात|village|rural/.test(t)){out.area="rural";got.push("rural");}
+  // flags
+  if(/जुड़वा|जुडवा|twin/.test(t)){out.multiple_birth=2;got.push("twins");}
+  if(/बीपीएल|bpl/.test(t)){out._bpl=true;got.push("BPL");}
+  return {fields:out,understood:got};
+}
+
+function setupVoice(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const btn=document.getElementById("micBtn");
+  if(!SR){btn.hidden=true;return;}
+  btn.hidden=false;
+  btn.addEventListener("click",()=>{
+    const rec=new SR();
+    rec.lang=lang==="hi"?"hi-IN":"en-IN";
+    rec.interimResults=false;rec.maxAlternatives=1;
+    const out=document.getElementById("voiceOut");
+    out.hidden=false;out.textContent="🎤 …";
+    rec.onresult=(ev)=>{
+      const text=ev.results[0][0].transcript;
+      const res=parseUtterance(text);
+      if(current.event!=="childbirth"){current=newMother("childbirth");}
+      Object.assign(current.profile,res.fields);
+      delete current.profile._bpl;
+      if(res.fields._bpl)current.bools.bpl=true;
+      loadIntoForm();persistCurrent();
+      out.innerHTML='“'+esc(text)+'”<br><b>'+L("understood")+':</b> '+(res.understood.length?esc(res.understood.join(" · ")):"—");
+      if(view!=="mother")setView("mother");else run();
+    };
+    rec.onerror=()=>{out.textContent=L("noVoice");};
+    rec.start();
+  });
+}
+
 // events
+document.getElementById("life_event").addEventListener("change",e=>{
+  const ev=e.target.value;
+  if(ev===(current.event||"childbirth"))return;
+  const keep={name:current.name,state:current.profile.state};
+  current=newMother(ev);
+  current.name=keep.name;current.profile.state=keep.state||current.profile.state;
+  loadIntoForm();
+  if(view!=="mother")setView("mother");else run();
+});
 document.getElementById("form").addEventListener("input",()=>{formToCurrent();persistCurrent();if(view!=="mother")setView("mother");else run();});
 document.getElementById("saveBtn").addEventListener("click",()=>{saveMother();refresh();});
 document.getElementById("newBtn").addEventListener("click",()=>{current=newMother();loadIntoForm();renderCaseload();setView("mother");});
-document.getElementById("langBtn").addEventListener("click",()=>{lang=lang==="en"?"hi":"en";applyLang();refresh();});
+document.getElementById("langBtn").addEventListener("click",()=>{lang=lang==="en"?"hi":"en";localStorage.setItem("sahej_lang",lang);applyLang();refresh();});
 document.getElementById("tabToday").addEventListener("click",()=>setView("today"));
 document.getElementById("tabMother").addEventListener("click",()=>setView("mother"));
 

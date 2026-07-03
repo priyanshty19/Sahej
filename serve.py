@@ -30,10 +30,14 @@ HOST = os.environ.get("HOST", "127.0.0.1")
 
 _BOOL = {"true": True, "1": True, "on": True, "yes": True, "false": False, "0": False, "": False}
 _BOOL_FIELDS = ["c_section", "bpl", "single_mother", "mother_disability", "child_disability",
-                "govt_employee", "has_aadhaar", "has_bank_account", "premature", "low_birth_weight"]
+                "govt_employee", "has_aadhaar", "has_bank_account", "premature", "low_birth_weight",
+                "was_breadwinner", "accidental_death", "deceased_had_bank_account",
+                "formal_sector", "construction_worker"]
 _INT_FIELDS = ["child_number", "multiple_birth"]
-_STR_FIELDS = ["state", "delivery_state", "birth_date", "delivery_type", "child_sex",
-               "birth_outcome", "maternal_outcome", "area", "category"]
+_STR_FIELDS = ["life_event", "state", "delivery_state", "birth_date", "delivery_type", "child_sex",
+               "birth_outcome", "maternal_outcome", "area", "category",
+               "death_date", "relation_to_deceased", "applicant_sex"]
+_FLOAT_FIELDS = ["mother_age_years", "deceased_age_years", "applicant_age_years"]
 
 MIME = {
     ".html": "text/html; charset=utf-8",
@@ -65,9 +69,10 @@ def _profile_from_query(qs):
         v = g(f)
         if v not in (None, ""):
             p[f] = v  # engine validates and coerces
-    v = g("mother_age_years")
-    if v not in (None, ""):
-        p["mother_age_years"] = v
+    for f in _FLOAT_FIELDS:
+        v = g(f)
+        if v not in (None, ""):
+            p[f] = v
     for f in _BOOL_FIELDS:
         v = g(f)
         if v is not None:

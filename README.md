@@ -79,10 +79,11 @@ first installment and only about 1 in 10 received all three.
 |------|------------|
 | `PRODUCT_PLAN.md` | The owner's plan: personas, the full scenario matrix, feature set, roadmap. |
 | `data/childbirth_schemes.json` | **The asset.** Structured, sourced rules + all **36 states/UTs** (LPS·HPS, opt-outs). |
+| `data/death_schemes.json` | **Second life event** on the same engine: death registration, NFBS, widow pension, PMJJBY/PMSBY insurance claims, EPF/EPS/EDLI, BOCW death benefit, heir certificate. |
 | `engine.py` | Pure-stdlib resolver: eligibility, blocking, claimed-tracking, urgency, documents, sensitive-mode, migrants, **input validation**. CLI + `meta()`. |
 | `serve.py` | Zero-dependency hardened server: pages, API, static/PWA assets, security headers (CSP, nosniff, frame-deny), traversal-safe. |
 | `web/landing.html` | The story: problem, insight, how it works, coverage, partner CTA. |
-| `web/index.html` | The ASHA tool (PWA): **Today work plan** across the caseload, application lifecycle (**applied → received, stuck-payment detection + complaint generator**), where-to-apply & grievance channels, caseload **backup/restore + CSV block report**, EN⇄HI, docs checklist, alerts, share, **offline support**. |
+| `web/index.html` | The ASHA tool (PWA): **Today work plan** across the caseload, application lifecycle (**applied → received, stuck-payment detection + complaint generator**), where-to-apply & grievance channels, **voice intake (Hindi/English speech → filled form)**, **life-event selector (childbirth / death in family)**, one-tap **demo caseload**, caseload **backup/restore + CSV block report**, EN⇄HI, docs checklist, alerts, share, **offline support**. |
 | `web/sw.js` + `manifest.webmanifest` + icons | Installable app; shell cached offline, last plans available without signal. |
 | `test_engine.py` + `test_server.py` | **78 checks**: full scenario matrix + HTTP routing/validation/security. CI runs them on every push. |
 | `tools/` | Reproducible generators for the README charts and PWA icons. |

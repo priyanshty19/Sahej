@@ -19,15 +19,24 @@ import json
 import os
 from datetime import date, datetime
 
-KB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "childbirth_schemes.json")
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+LIFE_EVENTS = ("childbirth", "death")
+KB_PATH = os.path.join(DATA_DIR, "childbirth_schemes.json")  # back-compat alias
 
-# Option lists the UI/CLI use to render the intake form.
+# Option lists the UI/CLI use to render the intake form (childbirth event).
 META = {
     "delivery_type": ["institutional_public", "institutional_private_empanelled", "institutional_private", "home"],
     "child_sex": ["girl", "boy"],
     "category": ["general", "obc", "sc", "st"],
     "birth_outcome": ["live", "stillbirth", "neonatal_death"],
     "maternal_outcome": ["alive", "deceased"],
+    "area": ["rural", "urban"],
+}
+
+# Option lists for the death (survivor-support) event.
+DEATH_META = {
+    "relation_to_deceased": ["spouse", "child", "parent", "sibling", "other"],
+    "applicant_sex": ["female", "male"],
     "area": ["rural", "urban"],
 }
 
@@ -104,6 +113,26 @@ PROFILE_DEFAULTS = {
     "applied": {},                 # component id -> application date (YYYY-MM-DD)
 }
 
+DEATH_DEFAULTS = {
+    "state": None,
+    "death_date": None,
+    "deceased_age_years": 45.0,
+    "applicant_age_years": 40.0,
+    "applicant_sex": "female",
+    "relation_to_deceased": "spouse",
+    "was_breadwinner": True,
+    "accidental_death": False,
+    "deceased_had_bank_account": True,
+    "formal_sector": False,
+    "construction_worker": False,
+    "area": "rural",
+    "bpl": False,
+    "has_aadhaar": True,
+    "has_bank_account": True,
+    "claimed": [],
+    "applied": {},
+}
+
 STUCK_AFTER_DAYS = 45  # applied but unpaid this long -> escalate
 
 
@@ -129,12 +158,28 @@ class ProfileError(ValueError):
     """Invalid input profile — message is safe to show to the user."""
 
 
-def _validate(p, kb):
+def _validate(p, kb, life_event="childbirth"):
     codes = set(_state_index(kb))
     if not p.get("state"):
         raise ProfileError("state is required (e.g. state=BR)")
     if p["state"] not in codes:
         raise ProfileError(f"unknown state code '{p['state']}' — use one of the 36 state/UT codes from /api/meta")
+
+    if life_event == "death":
+        for field, opts in DEATH_META.items():
+            if p.get(field) is not None and p[field] not in opts:
+                raise ProfileError(f"invalid {field} '{p[field]}' — expected one of: {', '.join(opts)}")
+        try:
+            p["deceased_age_years"] = float(p.get("deceased_age_years", 45.0))
+            p["applicant_age_years"] = float(p.get("applicant_age_years", 40.0))
+        except (TypeError, ValueError):
+            raise ProfileError("deceased_age_years and applicant_age_years must be numbers")
+        if not 0 <= p["deceased_age_years"] <= 120:
+            raise ProfileError("deceased_age_years must be between 0 and 120")
+        if not 10 <= p["applicant_age_years"] <= 110:
+            raise ProfileError("applicant_age_years must be between 10 and 110")
+        return
+
     if p.get("delivery_state") and p["delivery_state"] not in codes:
         raise ProfileError(f"unknown delivery_state code '{p['delivery_state']}'")
     for field in ("delivery_type", "child_sex", "birth_outcome", "maternal_outcome", "area", "category"):
@@ -154,29 +199,32 @@ def _validate(p, kb):
         raise ProfileError("mother_age_years must be between 10 and 70")
 
 
-def build_profile(raw, kb, as_of=None):
-    p = dict(PROFILE_DEFAULTS)
+def build_profile(raw, kb, as_of=None, life_event="childbirth"):
+    p = dict(DEATH_DEFAULTS if life_event == "death" else PROFILE_DEFAULTS)
     p.update({k: v for k, v in raw.items() if v is not None})
-    _validate(p, kb)
+    _validate(p, kb, life_event)
 
     as_of = as_of or date.today()
     p["future_birth"] = False
-    if p.get("birth_date"):
-        bd = p["birth_date"]
+    date_field = "death_date" if life_event == "death" else "birth_date"
+    if p.get(date_field):
+        bd = p[date_field]
         if isinstance(bd, str):
             try:
                 bd = datetime.strptime(bd, "%Y-%m-%d").date()
             except ValueError:
-                raise ProfileError(f"invalid birth_date '{p['birth_date']}' — expected YYYY-MM-DD")
+                raise ProfileError(f"invalid {date_field} '{p[date_field]}' — expected YYYY-MM-DD")
         delta = (as_of - bd).days
         if delta < 0:
-            # Expected due date: show the plan ahead of the birth instead of failing.
+            # A future date: show the plan ahead of the event instead of failing.
             p["future_birth"] = True
             delta = 0
-        p["days_since_birth"] = delta
-        p["birth_date"] = bd.isoformat()
+        p["days_since_birth"] = delta  # the event clock — name kept for rule/back-compat
+        p[date_field] = bd.isoformat()
     else:
         p["days_since_birth"] = 0
+    p["days_since_event"] = p["days_since_birth"]
+    p["life_event"] = life_event
 
     p["delivery_state"] = p.get("delivery_state") or p.get("state")
     sidx = _state_index(kb)
@@ -221,18 +269,34 @@ def _map_to_visit(deadline_day, visit_days):
     return max(earlier) if earlier else visit_days[0]
 
 
-def load_kb(path=KB_PATH):
+def load_kb(path=None, life_event="childbirth"):
+    if path is None:
+        if life_event not in LIFE_EVENTS:
+            raise ProfileError(f"unknown life_event '{life_event}' — expected one of: {', '.join(LIFE_EVENTS)}")
+        path = os.path.join(DATA_DIR, f"{life_event}_schemes.json")
     with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        kb = json.load(f)
+    if "states" not in kb:  # shared reference data lives in data/states.json
+        with open(os.path.join(DATA_DIR, "states.json"), "r", encoding="utf-8") as f:
+            kb["states"] = json.load(f)["states"]
+    return kb
 
 
-def resolve(raw_profile, kb=None, as_of=None):
-    kb = kb or load_kb()
-    profile = build_profile(raw_profile, kb, as_of)
+def _visit_days(kb):
+    rail = kb.get("checkpoints") or kb.get("asha_hbnc_visits") or {}
+    return rail.get("visit_days", [])
+
+
+def resolve(raw_profile, kb=None, as_of=None, life_event=None):
+    raw_profile = dict(raw_profile)
+    life_event = life_event or raw_profile.pop("life_event", None) or "childbirth"
+    raw_profile.pop("life_event", None)
+    kb = kb or load_kb(life_event=life_event)
+    profile = build_profile(raw_profile, kb, as_of, life_event)
     sidx = _state_index(kb)
     state = sidx.get(profile.get("state"), {})
     optout = set(state.get("optout", []))
-    visit_days = kb["asha_hbnc_visits"]["visit_days"]
+    visit_days = _visit_days(kb)
     days = profile["days_since_birth"]
     claimed = set(profile["claimed"])
 
@@ -243,7 +307,8 @@ def resolve(raw_profile, kb=None, as_of=None):
 
     timeline, not_eligible, flagged = [], [], []
     sensitive_mode = (
-        profile.get("birth_outcome") in ("stillbirth", "neonatal_death")
+        life_event == "death"
+        or profile.get("birth_outcome") in ("stillbirth", "neonatal_death")
         or profile.get("maternal_outcome") == "deceased"
     )
 
@@ -346,7 +411,9 @@ def resolve(raw_profile, kb=None, as_of=None):
     if has_cash and not profile.get("has_aadhaar"):
         alerts.append({"level": "blocker", "text": "No Aadhaar — required for most cash transfers. Enrol first."})
     if profile.get("future_birth"):
-        alerts.append({"level": "warn", "text": "Birth date is in the future — showing the plan for the expected delivery. Recheck after the birth."})
+        alerts.append({"level": "warn", "text": ("Date is in the future — showing the plan ahead of the event."
+                       if life_event != "childbirth" else
+                       "Birth date is in the future — showing the plan for the expected delivery. Recheck after the birth.")})
     if profile.get("is_migrant"):
         alerts.append({"level": "warn", "text": f"Migrant case: delivered in {sidx.get(profile['delivery_state'], {}).get('name', profile['delivery_state'])} but resident of {profile.get('state_name')}. Claim JSY where she delivered; state schemes follow her home state — check portability."})
     if sensitive_mode:
@@ -384,20 +451,21 @@ def resolve(raw_profile, kb=None, as_of=None):
         "not_eligible": not_eligible,
         "flagged_for_verification": flagged,
         "visit_days": visit_days,
+        "life_event": life_event,
         "kb_version": kb.get("version"),
         "kb_as_of": kb.get("as_of"),
     }
 
 
 def work_plan(mothers, kb=None, as_of=None):
-    """Aggregate a caseload into the ASHA's daily work plan.
+    """Aggregate a caseload into the worker's daily plan (any mix of life events).
 
-    mothers: [{"id": ..., "name": ..., "profile": {<flat resolve() profile>}}]
-    Returns entries sorted most-urgent-first with per-mother rollups + totals.
+    mothers: [{"id": ..., "name": ..., "profile": {<flat resolve() profile,
+              optionally with life_event>}}]
+    Returns entries sorted most-urgent-first with per-case rollups + totals.
     """
-    kb = kb or load_kb()
     as_of = as_of or date.today()
-    visit_days = kb["asha_hbnc_visits"]["visit_days"]
+    kbs = {"childbirth": kb} if kb else {}
 
     entries, errors = [], []
     totals = {"mothers": 0, "overdue": 0, "urgent": 0, "stuck": 0,
@@ -405,11 +473,16 @@ def work_plan(mothers, kb=None, as_of=None):
 
     for m in mothers:
         mid, name = m.get("id"), m.get("name") or "(unnamed)"
+        profile = dict(m.get("profile") or {})
+        event = profile.get("life_event") or "childbirth"
         try:
-            r = resolve(m.get("profile") or {}, kb=kb, as_of=as_of)
+            if event not in kbs:
+                kbs[event] = load_kb(life_event=event)
+            r = resolve(profile, kb=kbs[event], as_of=as_of, life_event=event)
         except ProfileError as e:
             errors.append({"id": mid, "name": name, "error": str(e)})
             continue
+        visit_days = _visit_days(kbs[event])
         s, days = r["summary"], r["profile"]["days_since_birth"]
         visit_today = days in visit_days
         next_visit = next((v for v in visit_days if v >= days), None)
@@ -420,7 +493,7 @@ def work_plan(mothers, kb=None, as_of=None):
         score = (s["overdue_count"] * 100 + s["stuck_count"] * 60 + s["urgent_count"] * 30
                  + (20 if visit_today else 0) + (1 if s["remaining_cash_inr"] else 0))
         entries.append({
-            "id": mid, "name": name, "day": days, "visit_today": visit_today,
+            "id": mid, "name": name, "event": event, "day": days, "visit_today": visit_today,
             "next_visit_day": next_visit, "hbnc_complete": next_visit is None,
             "overdue": s["overdue_count"], "urgent": s["urgent_count"],
             "stuck": s["stuck_count"], "applied": s["applied_count"],
@@ -436,16 +509,23 @@ def work_plan(mothers, kb=None, as_of=None):
         totals["remaining_cash_inr"] += s["remaining_cash_inr"]
 
     entries.sort(key=lambda e: -e["score"])
-    return {"as_of": as_of.isoformat(), "plan": entries, "errors": errors,
-            "totals": totals, "visit_days": visit_days}
+    return {"as_of": as_of.isoformat(), "plan": entries, "errors": errors, "totals": totals}
 
 
 def meta(kb=None):
     kb = kb or load_kb()
+    death_kb = load_kb(life_event="death")
     return {
         "states": kb.get("states", []),
-        "visit_days": kb["asha_hbnc_visits"]["visit_days"],
+        "visit_days": _visit_days(kb),
         "options": META,
+        "life_events": LIFE_EVENTS,
+        "events": {
+            "childbirth": {"options": META, "visit_days": _visit_days(kb),
+                           "kb_version": kb.get("version")},
+            "death": {"options": DEATH_META, "visit_days": _visit_days(death_kb),
+                      "kb_version": death_kb.get("version")},
+        },
         "kb_version": kb.get("version"),
         "kb_as_of": kb.get("as_of"),
     }

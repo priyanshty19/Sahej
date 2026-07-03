@@ -111,6 +111,29 @@ def run():
         code, body = post(base, "/nope", {"x": 1})
         chk("POST unknown route -> 404", code == 404)
 
+        # Death life event over the API
+        code, _, body = get(base, "/api/resolve?life_event=death&state=BR&death_date=2026-06-20&bpl=true&deceased_age_years=42&applicant_age_years=45")
+        r = json.loads(body)
+        chk("resolve life_event=death -> survivor items",
+            code == 200 and r["life_event"] == "death" and r["summary"]["sensitive_mode"]
+            and any(it["component_id"] == "register_death" for it in r["timeline"]))
+
+        code, _, body = get(base, "/api/resolve?life_event=wedding&state=BR")
+        chk("unknown life_event -> 400", code == 400 and "life_event" in json.loads(body)["error"])
+
+        code, _, body = get(base, "/api/meta")
+        m2 = json.loads(body)
+        chk("meta lists both life events", set(m2.get("life_events", [])) == {"childbirth", "death"})
+
+        code, body = post(base, "/api/plan", {"mothers": [
+            {"id": "a", "name": "Birth", "profile": {"state": "BR", "birth_date": "2026-06-30"}},
+            {"id": "b", "name": "Death", "profile": {"life_event": "death", "state": "UP",
+                                                     "death_date": "2026-06-20", "bpl": True}},
+        ]})
+        pl = json.loads(body)
+        chk("plan handles mixed life events",
+            code == 200 and {e["event"] for e in pl["plan"]} == {"childbirth", "death"})
+
         # Static / PWA assets
         code, hdrs, body = get(base, "/manifest.webmanifest")
         chk("manifest served with manifest MIME",

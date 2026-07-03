@@ -185,6 +185,38 @@ def run():
     chk("26: channels carried onto timeline items",
         all(it["apply_at"] for it in R()["timeline"]))
 
+    # 28. Death life event: survivor benefits resolve on the same engine.
+    def D(**kw):
+        base = {"state": "BR", "death_date": "2026-06-20", "bpl": True,
+                "deceased_age_years": 42, "applicant_age_years": 45}
+        base.update(kw)
+        return resolve(base, as_of=date(2026, 7, 4), life_event="death")
+    r = D(construction_worker=True, accidental_death=True)
+    chk("28: death event resolves with survivor items",
+        {"register_death", "nfbs_lumpsum", "heir_certificate", "pmjjby_payout"} <= ids(r))
+    chk("28: death is always sensitive mode", r["summary"]["sensitive_mode"])
+    chk("28: death registration is the gateway", item(r, "register_death")["is_gateway"])
+    chk("28: NFBS blocked until death registered",
+        item(r, "nfbs_lumpsum")["status"] == "blocked")
+    chk("28: accidental death unlocks PMSBY", "pmsby_payout" in ids(r))
+    chk("28: non-accidental death has no PMSBY", "pmsby_payout" not in ids(D()))
+    chk("28: BOCW death benefit gated on worker card",
+        "bocw_death_cash" in ids(r) and "bocw_death_cash" not in ids(D()))
+    chk("28: widow pension for BPL widow 45", "ignwps_pension" in ids(D()))
+    chk("28: widow pension age-gated (38 too young for IGNWPS)",
+        "widow_pension" in ne_ids(D(applicant_age_years=38)))
+    chk("28: NFBS needs BPL", "nfbs" in ne_ids(D(bpl=False)))
+    try:
+        D(relation_to_deceased="cousin")
+        chk("28: death validation catches bad relation", False)
+    except ProfileError:
+        chk("28: death validation catches bad relation", True)
+    try:
+        resolve({"state": "BR"}, life_event="wedding")
+        chk("28: unknown life_event rejected", False)
+    except ProfileError:
+        chk("28: unknown life_event rejected", True)
+
     # 27. work_plan: ordering, totals, per-mother error isolation.
     plan = work_plan([
         {"id": "a", "name": "VisitToday", "profile": {"state": "BR", "birth_date": "2026-06-30"}},
@@ -196,6 +228,15 @@ def run():
     chk("27: invalid mother isolated as error, not crash",
         len(plan["errors"]) == 1 and "unknown state" in plan["errors"][0]["error"])
     chk("27: totals aggregate", plan["totals"]["mothers"] == 2 and plan["totals"]["remaining_cash_inr"] > 0)
+    mixed = work_plan([
+        {"id": "a", "name": "Birth", "profile": {"state": "BR", "birth_date": "2026-07-01"}},
+        {"id": "b", "name": "Death", "profile": {"life_event": "death", "state": "UP",
+                                                 "death_date": "2026-06-20", "bpl": True}},
+    ], as_of=date(2026, 7, 4))
+    chk("27: mixed life events in one plan",
+        {e["event"] for e in mixed["plan"]} == {"childbirth", "death"})
+    chk("27: empty caseload plan does not crash",
+        work_plan([], as_of=date(2026, 7, 4))["totals"]["mothers"] == 0)
 
     passed = sum(1 for _, ok in checks if ok)
     for name, ok in checks:

@@ -1,0 +1,259 @@
+{
+  "$comment": "Shared reference list of all 36 states/UTs (LPS flag + central-scheme opt-outs). Injected by load_kb() into any life-event KB that does not carry its own states array.",
+  "states": [
+    {
+      "code": "AP",
+      "name": "Andhra Pradesh",
+      "type": "state",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "AR",
+      "name": "Arunachal Pradesh",
+      "type": "state",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "AS",
+      "name": "Assam",
+      "type": "state",
+      "lps": true,
+      "optout": []
+    },
+    {
+      "code": "BR",
+      "name": "Bihar",
+      "type": "state",
+      "lps": true,
+      "optout": []
+    },
+    {
+      "code": "CG",
+      "name": "Chhattisgarh",
+      "type": "state",
+      "lps": true,
+      "optout": []
+    },
+    {
+      "code": "GA",
+      "name": "Goa",
+      "type": "state",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "GJ",
+      "name": "Gujarat",
+      "type": "state",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "HR",
+      "name": "Haryana",
+      "type": "state",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "HP",
+      "name": "Himachal Pradesh",
+      "type": "state",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "JH",
+      "name": "Jharkhand",
+      "type": "state",
+      "lps": true,
+      "optout": []
+    },
+    {
+      "code": "KA",
+      "name": "Karnataka",
+      "type": "state",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "KL",
+      "name": "Kerala",
+      "type": "state",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "MP",
+      "name": "Madhya Pradesh",
+      "type": "state",
+      "lps": true,
+      "optout": []
+    },
+    {
+      "code": "MH",
+      "name": "Maharashtra",
+      "type": "state",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "MN",
+      "name": "Manipur",
+      "type": "state",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "ML",
+      "name": "Meghalaya",
+      "type": "state",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "MZ",
+      "name": "Mizoram",
+      "type": "state",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "NL",
+      "name": "Nagaland",
+      "type": "state",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "OR",
+      "name": "Odisha",
+      "type": "state",
+      "lps": true,
+      "optout": []
+    },
+    {
+      "code": "PB",
+      "name": "Punjab",
+      "type": "state",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "RJ",
+      "name": "Rajasthan",
+      "type": "state",
+      "lps": true,
+      "optout": []
+    },
+    {
+      "code": "SK",
+      "name": "Sikkim",
+      "type": "state",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "TN",
+      "name": "Tamil Nadu",
+      "type": "state",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "TG",
+      "name": "Telangana",
+      "type": "state",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "TR",
+      "name": "Tripura",
+      "type": "state",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "UP",
+      "name": "Uttar Pradesh",
+      "type": "state",
+      "lps": true,
+      "optout": []
+    },
+    {
+      "code": "UK",
+      "name": "Uttarakhand",
+      "type": "state",
+      "lps": true,
+      "optout": []
+    },
+    {
+      "code": "WB",
+      "name": "West Bengal",
+      "type": "state",
+      "lps": false,
+      "optout": [
+        "pmmvy"
+      ]
+    },
+    {
+      "code": "AN",
+      "name": "Andaman & Nicobar Islands",
+      "type": "ut",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "CH",
+      "name": "Chandigarh",
+      "type": "ut",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "DH",
+      "name": "Dadra & Nagar Haveli and Daman & Diu",
+      "type": "ut",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "DL",
+      "name": "Delhi",
+      "type": "ut",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "JK",
+      "name": "Jammu & Kashmir",
+      "type": "ut",
+      "lps": true,
+      "optout": []
+    },
+    {
+      "code": "LA",
+      "name": "Ladakh",
+      "type": "ut",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "LD",
+      "name": "Lakshadweep",
+      "type": "ut",
+      "lps": false,
+      "optout": []
+    },
+    {
+      "code": "PY",
+      "name": "Puducherry",
+      "type": "ut",
+      "lps": false,
+      "optout": []
+    }
+  ]
+}

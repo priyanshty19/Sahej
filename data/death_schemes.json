@@ -1,0 +1,188 @@
+{
+  "$comment": "Sahej death life-event knowledge base v0.1. Survivor support after a death in the family. Same schema as the childbirth KB: eligibility predicates over a profile, components with deadlines (days since the death), document dependencies, cash, provenance and confidence. Research-grade drafts; needs_verification rules must be confirmed against current Government Orders.",
+  "version": "0.1.0",
+  "as_of": "2026-07-04",
+  "country": "IN",
+  "life_event": "death",
+
+  "checkpoints": {
+    "$comment": "No fixed home-visit rail exists for deaths; these are sensible follow-up checkpoints (days after the death) the worker can schedule around.",
+    "visit_days": [7, 14, 21, 30, 60],
+    "source_urls": []
+  },
+
+  "schemes": [
+    {
+      "id": "death_registration",
+      "name": "Death Registration",
+      "name_hi": "मृत्यु पंजीकरण",
+      "authority": "Registrar of Births & Deaths (statutory, RBD Act 1969)",
+      "category": "foundational_document",
+      "confidence": "high",
+      "apply_at": "The hospital (if death occurred there) or the Gram Panchayat / municipal registrar",
+      "apply_via": "crsorgi.gov.in",
+      "grievance": "District Registrar of Births & Deaths",
+      "source_urls": ["https://crsorgi.gov.in/"],
+      "eligibility": {"all": []},
+      "benefit_components": [
+        {"id": "register_death", "title": "Register the death (free within 21 days)", "title_hi": "मृत्यु पंजीकरण (21 दिनों के भीतर नि:शुल्क)", "phase": "post_event", "cash_inr": 0, "deadline_day": 21,
+         "eligibility": {"all": []},
+         "documents": ["medical certificate of cause of death", "deceased's ID (Aadhaar)", "informant's ID"],
+         "depends_on": [],
+         "note": "GATEWAY DOCUMENT. Free within 21 days; late registration needs fees and a magistrate/registrar process. Every survivor benefit below requires the death certificate.",
+         "is_gateway": true, "sensitive": true}
+      ]
+    },
+
+    {
+      "id": "nfbs",
+      "name": "National Family Benefit Scheme",
+      "name_hi": "राष्ट्रीय परिवार लाभ योजना",
+      "authority": "Ministry of Rural Development (NSAP, central)",
+      "category": "survivor_cash",
+      "confidence": "medium",
+      "apply_at": "Block Development Office / Tehsil social welfare desk",
+      "grievance": "District Social Welfare Officer; CPGRAMS",
+      "source_urls": ["https://nsap.nic.in/"],
+      "eligibility": {"all": [
+        {"field": "was_breadwinner", "op": "eq", "value": true, "label": "the deceased was the family's primary breadwinner"},
+        {"field": "deceased_age_years", "op": "ge", "value": 18, "label": "deceased aged 18–60"},
+        {"field": "deceased_age_years", "op": "le", "value": 60, "label": "deceased aged 18–60"},
+        {"field": "bpl", "op": "eq", "value": true, "label": "BPL household"}
+      ]},
+      "benefit_components": [
+        {"id": "nfbs_lumpsum", "title": "One-time family benefit (₹20,000)", "title_hi": "एकमुश्त पारिवारिक सहायता (₹20,000)", "phase": "post_event", "cash_inr": 20000, "deadline_day": 90,
+         "eligibility": {"all": []},
+         "documents": ["death certificate", "BPL card / proof", "surviving head's Aadhaar + bank account"],
+         "depends_on": ["death_registration.register_death"],
+         "note": "Apply promptly — several states enforce an application window (often ~90 days, varies). Verify the local limit.",
+         "sensitive": true, "needs_verification": true}
+      ]
+    },
+
+    {
+      "id": "widow_pension",
+      "name": "Indira Gandhi National Widow Pension (IGNWPS)",
+      "name_hi": "इंदिरा गांधी राष्ट्रीय विधवा पेंशन",
+      "authority": "Ministry of Rural Development (NSAP, central) + state top-ups",
+      "category": "survivor_pension",
+      "confidence": "medium",
+      "apply_at": "Block Development Office / Tehsil social welfare desk, or the Gram Panchayat secretary",
+      "grievance": "District Social Welfare Officer; CPGRAMS",
+      "source_urls": ["https://nsap.nic.in/"],
+      "eligibility": {"all": [
+        {"field": "relation_to_deceased", "op": "eq", "value": "spouse", "label": "applicant is the widow of the deceased"},
+        {"field": "applicant_sex", "op": "eq", "value": "female", "label": "widow (female applicant)"},
+        {"field": "applicant_age_years", "op": "ge", "value": 40, "label": "widow aged 40–79 (younger widows: check state schemes)"},
+        {"field": "applicant_age_years", "op": "lt", "value": 80, "label": "widow aged 40–79 (80+ moves to old-age pension)"},
+        {"field": "bpl", "op": "eq", "value": true, "label": "BPL household"}
+      ]},
+      "benefit_components": [
+        {"id": "ignwps_pension", "title": "Monthly widow pension (₹300 central + state top-up)", "title_hi": "मासिक विधवा पेंशन (₹300 केंद्रीय + राज्य अंश)", "phase": "post_event", "cash_inr": 300, "deadline_day": null,
+         "eligibility": {"all": []},
+         "documents": ["death certificate of husband", "widow's Aadhaar + bank account", "BPL proof", "age proof"],
+         "depends_on": ["death_registration.register_death"],
+         "note": "Central share is ₹300/month (₹500 at 80+); most states add a top-up — several pay ₹1,000+ total. Younger widows and non-BPL: check the state's own widow pension.",
+         "sensitive": true, "needs_verification": true}
+      ]
+    },
+
+    {
+      "id": "pmjjby_claim",
+      "name": "PM Jeevan Jyoti Bima (life insurance claim)",
+      "name_hi": "पीएम जीवन ज्योति बीमा दावा",
+      "authority": "Ministry of Finance (bank-linked group insurance)",
+      "category": "insurance_claim",
+      "confidence": "medium",
+      "apply_at": "The deceased's bank branch (where the ₹436/yr premium was auto-debited)",
+      "grievance": "Bank branch manager; banking ombudsman",
+      "source_urls": ["https://www.jansuraksha.gov.in/"],
+      "eligibility": {"all": [
+        {"field": "deceased_had_bank_account", "op": "eq", "value": true, "label": "deceased had a bank account (PMJJBY is bank-linked)"},
+        {"field": "deceased_age_years", "op": "ge", "value": 18, "label": "cover ages 18–55 (claims payable in cover)"}
+      ]},
+      "benefit_components": [
+        {"id": "pmjjby_payout", "title": "₹2,00,000 life cover claim — ask the bank if enrolled", "title_hi": "₹2 लाख जीवन बीमा दावा — बैंक से पूछें", "phase": "post_event", "cash_inr": 200000, "deadline_day": 30,
+         "eligibility": {"all": []},
+         "documents": ["death certificate", "claim form from bank", "nominee's Aadhaar + bank account"],
+         "depends_on": ["death_registration.register_death"],
+         "note": "Many families never learn the deceased was enrolled (₹436/yr auto-debit). ALWAYS ask the bank to check. Claim early — insurers expect prompt filing (~30 days is safe).",
+         "sensitive": true, "needs_verification": true},
+        {"id": "pmsby_payout", "title": "₹2,00,000 accident cover (PMSBY) — if death was accidental", "title_hi": "₹2 लाख दुर्घटना बीमा (PMSBY)", "phase": "post_event", "cash_inr": 200000, "deadline_day": 30,
+         "eligibility": {"all": [{"field": "accidental_death", "op": "eq", "value": true, "label": "death was accidental"}]},
+         "documents": ["death certificate", "FIR / post-mortem report", "claim form from bank"],
+         "depends_on": ["death_registration.register_death"],
+         "note": "₹20/yr accident policy, also bank-linked. Needs FIR/post-mortem for accidental death. Ask the same bank.",
+         "sensitive": true, "needs_verification": true}
+      ]
+    },
+
+    {
+      "id": "epf_survivor",
+      "name": "EPF / EPS / ESIC survivor benefits",
+      "name_hi": "ईपीएफ / ईपीएस / ईएसआईसी उत्तरजीवी लाभ",
+      "authority": "EPFO / ESIC (formal-sector workers)",
+      "category": "pointer",
+      "confidence": "medium",
+      "apply_at": "Deceased's employer HR, or the regional EPFO/ESIC office",
+      "apply_via": "unifiedportal-mem.epfindia.gov.in",
+      "grievance": "EPFO regional commissioner; EPFiGMS portal",
+      "source_urls": ["https://www.epfindia.gov.in/"],
+      "eligibility": {"all": [
+        {"field": "formal_sector", "op": "eq", "value": true, "label": "deceased worked in the formal sector (EPF/ESIC member)"}
+      ]},
+      "benefit_components": [
+        {"id": "epf_claims", "title": "EPF balance + EPS widow/child pension + EDLI insurance (up to ₹7 lakh)", "title_hi": "ईपीएफ राशि + विधवा/बाल पेंशन + ईडीएलआई बीमा", "phase": "post_event", "cash_inr": 0, "deadline_day": null,
+         "eligibility": {"all": []},
+         "documents": ["death certificate", "PF account number / UAN", "nominee details", "bank account"],
+         "depends_on": ["death_registration.register_death"],
+         "note": "Three separate claims: PF balance (Form 20), monthly EPS pension for widow + children (Form 10-D), and EDLI life insurance up to ₹7 lakh (Form 5-IF). File through the employer.",
+         "sensitive": true}
+      ]
+    },
+
+    {
+      "id": "bocw_death_benefit",
+      "name": "BOCW construction-worker death benefit",
+      "name_hi": "निर्माण श्रमिक मृत्यु सहायता (बीओसीडब्ल्यू)",
+      "authority": "State Building & Other Construction Workers Welfare Board",
+      "category": "survivor_cash",
+      "confidence": "low",
+      "apply_at": "District labour office / BOCW board desk",
+      "grievance": "State BOCW Welfare Board; district labour commissioner",
+      "source_urls": [],
+      "eligibility": {"all": [
+        {"field": "construction_worker", "op": "eq", "value": true, "label": "deceased was a registered construction worker (BOCW card)"}
+      ]},
+      "benefit_components": [
+        {"id": "bocw_death_cash", "title": "BOCW death benefit (₹1–5 lakh, varies by state; higher for accidents)", "title_hi": "बीओसीडब्ल्यू मृत्यु सहायता (राज्य अनुसार ₹1–5 लाख)", "phase": "post_event", "cash_inr": 100000, "deadline_day": 90,
+         "eligibility": {"all": []},
+         "documents": ["death certificate", "BOCW registration card (must be live/renewed)", "nominee's Aadhaar + bank account"],
+         "depends_on": ["death_registration.register_death"],
+         "note": "₹43,000+ crore sits unspent in these boards. If the card lapsed, ask about condonation. Amount shown is a conservative floor — verify the state board's current rate.",
+         "sensitive": true, "needs_verification": true}
+      ]
+    },
+
+    {
+      "id": "legal_heir",
+      "name": "Legal Heir / Succession Certificate",
+      "name_hi": "उत्तराधिकार प्रमाणपत्र",
+      "authority": "Tehsildar / SDM office (heir certificate); civil court (succession)",
+      "category": "foundational_document",
+      "confidence": "high",
+      "apply_at": "Tehsil / SDM office (many states also via e-district portal)",
+      "grievance": "District Collector's office",
+      "source_urls": [],
+      "eligibility": {"all": []},
+      "benefit_components": [
+        {"id": "heir_certificate", "title": "Get the legal heir certificate", "title_hi": "उत्तराधिकार प्रमाणपत्र बनवाएँ", "phase": "post_event", "cash_inr": 0, "deadline_day": 60,
+         "eligibility": {"all": []},
+         "documents": ["death certificate", "family member IDs", "ration card / family proof"],
+         "depends_on": ["death_registration.register_death"],
+         "note": "Needed to transfer bank accounts, property, utilities and many claims. Cheap and local (tehsil); a court succession certificate is only for disputed/large estates.",
+         "sensitive": true}
+      ]
+    }
+  ]
+}
