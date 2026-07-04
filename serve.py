@@ -25,9 +25,19 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
+import catalog as catalog_mod
 import store
 from engine import resolve, meta, work_plan, ProfileError
 from store import StoreError
+
+_CATALOG = None
+
+
+def _catalog():
+    global _CATALOG
+    if _CATALOG is None:
+        _CATALOG = catalog_mod.load_catalog()
+    return _CATALOG
 
 MAX_BODY = 262_144      # 256 KB — a caseload of hundreds fits well under this
 MAX_MOTHERS = 200
@@ -159,6 +169,22 @@ class Handler(BaseHTTPRequestHandler):
             return self._file("index.html")
         if path == "/api/meta":
             return self._json(200, meta())
+        if path == "/api/schemes":
+            qs = parse_qs(parsed.query)
+            filters = {k: v[0] for k, v in qs.items()}
+            try:
+                return self._json(200, catalog_mod.search(filters, catalog=_catalog(),
+                                                          limit=filters.get("limit", 100)))
+            except (ValueError, TypeError):
+                return self._json(400, {"error": "invalid filter value"})
+        if path == "/api/facets":
+            return self._json(200, catalog_mod.facet_meta(catalog=_catalog()))
+        if path.startswith("/api/scheme/"):
+            sid = path[len("/api/scheme/"):]
+            s = catalog_mod.get(sid, catalog=_catalog())
+            if s is None:
+                return self._json(404, {"error": "unknown scheme id"})
+            return self._json(200, s)
         if path == "/api/resolve":
             try:
                 return self._json(200, resolve(_profile_from_query(parse_qs(parsed.query))))
