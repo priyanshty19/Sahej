@@ -10,3 +10,7 @@ venv/
 *.swp
 .idea/
 .vscode/
+
+# Local database (worker accounts + synced caseloads — never commit)
+data/sahej.db
+data/*.db*

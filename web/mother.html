@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>मेरा हक़ · Sahej</title>
+<link rel="icon" href="/favicon-32.png">
+<style>
+  :root{--teal:#0f766e;--teal-d:#115e59;--ink:#1f2937;--mut:#6b7280;--bg:#f6f8f7;
+        --card:#ffffff;--gold:#b45309;--red:#b91c1c;--green:#15803d;--line:#e5e7eb}
+  *{box-sizing:border-box;margin:0}
+  body{font-family:-apple-system,"Noto Sans Devanagari","Segoe UI",Roboto,sans-serif;
+       background:var(--bg);color:var(--ink);font-size:18px;line-height:1.55}
+  header{background:var(--teal);color:#fff;padding:18px 16px 16px}
+  header.sensitive{background:#475569}
+  h1{font-size:22px;font-weight:700}
+  .sub{opacity:.92;font-size:15px;margin-top:4px}
+  main{max-width:560px;margin:0 auto;padding:14px 12px 60px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+        padding:16px;margin-bottom:12px}
+  .big{font-size:32px;font-weight:800;color:var(--teal-d)}
+  .lbl{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+  .next{border-left:6px solid var(--gold);}
+  .next .act{font-size:19px;font-weight:700;margin-top:4px}
+  ul.docs{padding-left:22px;margin-top:6px}
+  .item{display:flex;gap:10px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
+  .item:first-of-type{border-top:0}
+  .tick{font-size:22px;line-height:1.2;width:28px;flex:none;text-align:center}
+  .t{font-weight:600}
+  .m{font-size:15px;color:var(--mut);margin-top:2px}
+  .cash{font-weight:700;color:var(--green);white-space:nowrap}
+  .pill{display:inline-block;font-size:12.5px;font-weight:700;border-radius:99px;
+        padding:2px 10px;margin-top:4px}
+  .p-done{background:#dcfce7;color:var(--green)}
+  .p-applied{background:#fef3c7;color:var(--gold)}
+  .p-overdue,.p-stuck{background:#fee2e2;color:var(--red)}
+  .p-upcoming{background:#e0f2f1;color:var(--teal-d)}
+  .p-blocked{background:#e5e7eb;color:var(--mut)}
+  .langbar{text-align:right;margin:-4px 0 8px}
+  .langbar button{background:#fff;border:1px solid var(--line);border-radius:8px;
+        padding:6px 14px;font-size:15px;cursor:pointer}
+  .foot{font-size:14px;color:var(--mut);margin-top:16px;text-align:center}
+  .err{padding:28px 16px;text-align:center;font-size:19px}
+  .verify{font-size:13.5px;color:var(--gold);margin-top:3px}
+  @media (max-width:380px){body{font-size:17px}.big{font-size:28px}}
+</style>
+</head>
+<body>
+<header id="hdr">
+  <h1 id="title">मेरा हक़ · My entitlements</h1>
+  <div class="sub" id="subtitle">आपकी आशा दीदी ने यह पेज आपके लिए भेजा है</div>
+</header>
+<main>
+  <div class="langbar"><button id="langBtn" type="button">English</button></div>
+  <div id="out" class="err">लोड हो रहा है… / Loading…</div>
+  <div class="foot" id="foot"></div>
+</main>
+<script>
+"use strict";
+const T={
+ hi:{owed:"आपको मिलने वाली कुल राशि",left:"अभी बाकी",next:"अभी सबसे ज़रूरी काम",
+     docs:"ये कागज़ तैयार रखें",steps:"आपकी पूरी सूची",by:"अंतिम तारीख़: दिन",
+     done:"मिल गया",applied:"अर्ज़ी दी गई",overdue:"तारीख़ निकल रही है",stuck:"अटका हुआ — आशा दीदी से कहें",
+     upcoming:"आने वाला",blocked:"पहले पिछला काम पूरा करें",ongoing:"चलता रहेगा",at:"कहाँ:",
+     verify:"राशि की पुष्टि आशा दीदी से करें",
+     foot:"यह पेज सिर्फ़ जानकारी के लिए है। कोई भी क़दम अपनी आशा दीदी के साथ मिलकर उठाएँ।",
+     err:"यह लिंक अभी चालू नहीं है — अपनी आशा दीदी से नया लिंक माँगें।",
+     sens:"हम आपके दुख में साथ हैं। ये मदद आपके परिवार का हक़ है — अपनी गति से, आशा दीदी के साथ।"},
+ en:{owed:"Total you are entitled to",left:"Still to come",next:"Most important step now",
+     docs:"Keep these documents ready",steps:"Your full checklist",by:"Deadline: day",
+     done:"Received",applied:"Application filed",overdue:"Deadline passing",stuck:"Stuck — tell your ASHA didi",
+     upcoming:"Coming up",blocked:"Finish the earlier step first",ongoing:"Ongoing",at:"Where:",
+     verify:"Confirm the amount with your ASHA didi",
+     foot:"This page is information only. Take every step together with your ASHA didi.",
+     err:"This link is not active — ask your ASHA didi for a new one.",
+     sens:"We are with you in your grief. This support is your family's right — at your own pace, with your ASHA didi."}
+};
+let L="hi", DATA=null;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const inr=n=>"₹"+Number(n||0).toLocaleString("en-IN");
+function pill(it){
+  const s=it.stuck?"stuck":it.status;
+  return `<span class="pill p-${esc(s)}">${esc(T[L][s]||s)}</span>`;
+}
+function render(){
+  const t=T[L];
+  $("#langBtn").textContent = L==="hi"?"English":"हिंदी";
+  document.documentElement.lang=L;
+  if(!DATA){$("#out").innerHTML=`<div class="err">${esc(t.err)}</div>`;$("#foot").textContent="";return;}
+  const d=DATA, sens=d.summary.sensitive_mode;
+  $("#hdr").className=sens?"sensitive":"";
+  $("#title").textContent=(d.name?esc(d.name)+" — ":"")+(L==="hi"?"मेरा हक़":"My entitlements");
+  $("#subtitle").textContent=sens?t.sens:(L==="hi"?"आपकी आशा दीदी ने यह पेज आपके लिए भेजा है":"Your ASHA didi sent this page for you");
+  let h="";
+  h+=`<div class="card"><div class="lbl">${esc(t.owed)}</div><div class="big">${inr(d.summary.total_cash_inr)}</div>`+
+     `<div class="m">${esc(t.left)}: <b>${inr(d.summary.remaining_cash_inr)}</b></div></div>`;
+  if(d.next_action)
+    h+=`<div class="card next"><div class="lbl">${esc(t.next)}</div><div class="act">${esc(L==="hi"?(d.next_action.title_hi||d.next_action.title):d.next_action.title)}</div>`+
+       (d.next_action.deadline_day!=null?`<div class="m">${esc(t.by)} ${esc(d.next_action.deadline_day)}</div>`:"")+`</div>`;
+  if(d.documents&&d.documents.length)
+    h+=`<div class="card"><div class="lbl">${esc(t.docs)}</div><ul class="docs">`+
+       d.documents.map(x=>`<li>${esc(x.document)}</li>`).join("")+`</ul></div>`;
+  h+=`<div class="card"><div class="lbl">${esc(t.steps)}</div>`;
+  for(const it of d.timeline){
+    const done=it.status==="done";
+    h+=`<div class="item"><div class="tick">${done?"✅":(it.stuck||it.status==="overdue"?"⚠️":"⬜")}</div><div style="flex:1">`+
+       `<div class="t">${esc(L==="hi"?(it.title_hi||it.title):it.title)}`+
+       (it.cash_inr?` <span class="cash">${inr(it.cash_inr)}</span>`:"")+`</div>`+
+       (it.deadline_day!=null&&!done?`<div class="m">${esc(t.by)} ${esc(it.deadline_day)}</div>`:"")+
+       (it.apply_at&&!done?`<div class="m">${esc(t.at)} ${esc(it.apply_at)}</div>`:"")+
+       (it.needs_verification?`<div class="verify">⚠ ${esc(t.verify)}</div>`:"")+
+       pill(it)+`</div></div>`;
+  }
+  h+=`</div>`;
+  $("#out").innerHTML=h;
+  $("#out").className="";
+  $("#foot").textContent=t.foot+" · Sahej "+(d.kb_version||"");
+}
+$("#langBtn").addEventListener("click",()=>{L=L==="hi"?"en":"hi";render();});
+const token=location.pathname.split("/").pop();
+fetch("/api/mother/"+encodeURIComponent(token))
+  .then(r=>r.ok?r.json():null)
+  .then(j=>{DATA=j;render();})
+  .catch(()=>{DATA=null;render();});
+</script>
+</body>
+</html>

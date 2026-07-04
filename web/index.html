@@ -140,6 +140,11 @@
     .card .cb{width:20px;height:20px}
     .stat .big{font-size:21px}
   }
+  .acct{margin-top:12px;border-top:1px solid var(--line);padding-top:10px;font-size:13px;color:var(--muted)}
+  .acct input{width:100%;margin:4px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;box-sizing:border-box}
+  .acct-err{color:#b91c1c;font-size:12.5px;margin-top:4px}
+  .linkbtn{background:none;border:none;color:var(--rail,#0f766e);font-size:13px;font-weight:600;
+           cursor:pointer;padding:0;text-decoration:underline}
   @media print{.panel.form,.panel.case-panel,header .hbtns,.offline{display:none}.wrap{grid-template-columns:1fr}}
 </style>
 </head>
@@ -169,6 +174,19 @@
       <button id="csvBtn" title="Download block report (CSV)">Report CSV</button>
     </div>
     <input type="file" id="restoreFile" accept="application/json,.json" hidden>
+    <div class="acct" id="acctBox">
+      <div id="acctLine"></div>
+      <div id="authForm" hidden>
+        <input id="acctPhone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="13" placeholder="Mobile number">
+        <input id="acctPin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="8" placeholder="PIN (4–8 digits)">
+        <input id="acctName" maxlength="60" placeholder="Your name (for a new account)" hidden>
+        <div class="tools">
+          <button type="button" id="loginBtn">Sign in</button>
+          <button type="button" id="regBtn">New account</button>
+        </div>
+        <div id="acctErr" class="acct-err" hidden role="alert"></div>
+      </div>
+    </div>
   </div>
 
   <!-- FORM -->
@@ -248,6 +266,7 @@
     </div><!-- /cbFields -->
 
     <button type="button" class="btn" id="saveBtn">Save to caseload</button>
+    <button type="button" class="btn sec" id="motherLinkBtn" hidden>📱 Mother's page</button>
   </form>
 
   <!-- RESULTS -->
@@ -303,7 +322,13 @@ const I18N = {
     rel:"Applicant is",appsex:"Applicant sex",dbpl:"BPL household",bread:"Was the primary breadwinner",
     acc:"Accidental death",decbank:"Deceased had a bank account",formal:"Formal-sector worker (EPF/ESIC)",
     bocw:"Registered construction worker",daadhaar:"Applicant has Aadhaar",dbank:"Applicant has a bank account",
-    followup:"Follow-up · day",case:"This case"},
+    followup:"Follow-up · day",case:"This case",
+    signin:"Sign in to sync",signinWhy:"keep the caseload safe across phones",signout:"Sign out",
+    synced:"synced",syncing:"syncing…",syncErr:"sync failed — will retry",nameFirst:"Enter your name, then tap New account again.",
+    phonePh:"Mobile number",pinPh:"PIN (4–8 digits)",namePh:"Your name (for a new account)",
+    loginBtn:"Sign in",regBtn:"New account",motherPage:"📱 Mother's page",
+    motherMsg:"Namaste! This page lists every government benefit for your family, with dates. Open it anytime:",
+    motherLinkHint:"Save + sign in to get a shareable page for the mother."},
   hi:{title:"सहज · Sahej",tag:"आशा कार्यकर्ता की सहायक — हर नई माँ का हक़, उन्हीं दिनों पर जब आप पहले से जाती हैं।",
     caseload:"मेरी सूची",mother:"यह माँ",name:"नाम / पहचान",state:"राज्य / केंद्रशासित",area:"क्षेत्र",delivery:"प्रसव",
     childnum:"संतान क्रमांक",childsex:"शिशु लिंग",age:"माँ की उम्र",birth:"जन्म तिथि",outcome:"जन्म परिणाम",moutcome:"माँ",
@@ -324,7 +349,13 @@ const I18N = {
     rel:"आवेदक हैं",appsex:"आवेदक लिंग",dbpl:"बीपीएल परिवार",bread:"मुख्य कमाने वाले थे",
     acc:"दुर्घटना से मृत्यु",decbank:"मृतक का बैंक खाता था",formal:"संगठित क्षेत्र (EPF/ESIC)",
     bocw:"पंजीकृत निर्माण श्रमिक",daadhaar:"आवेदक के पास आधार है",dbank:"आवेदक का बैंक खाता है",
-    followup:"अनुवर्ती · दिन",case:"यह प्रकरण"},
+    followup:"अनुवर्ती · दिन",case:"यह प्रकरण",
+    signin:"सिंक हेतु साइन इन",signinWhy:"सूची हर फ़ोन पर सुरक्षित रहे",signout:"साइन आउट",
+    synced:"सिंक हो गया",syncing:"सिंक हो रहा…",syncErr:"सिंक विफल — फिर कोशिश होगी",nameFirst:"पहले अपना नाम लिखें, फिर दोबारा नया खाता दबाएँ।",
+    phonePh:"मोबाइल नंबर",pinPh:"पिन (4–8 अंक)",namePh:"आपका नाम (नए खाते हेतु)",
+    loginBtn:"साइन इन",regBtn:"नया खाता",motherPage:"📱 माँ का पेज",
+    motherMsg:"नमस्ते! इस पेज पर आपके परिवार के सभी सरकारी लाभ तारीख़ों के साथ हैं। कभी भी खोलें:",
+    motherLinkHint:"माँ का साझा पेज पाने के लिए सहेजें + साइन इन करें।"},
 };
 
 let META=null, lang="en";
@@ -378,6 +409,9 @@ async function init(){
   caseload=caseload.map(migrate);
   applyLang(); loadIntoForm(); renderCaseload();
   setView(caseload.length?"today":"mother");
+  WORKER=await whoami();
+  renderAcct();
+  if(WORKER)syncNow();
 }
 
 function applyLang(){
@@ -401,6 +435,13 @@ function applyLang(){
   document.getElementById("backupBtn").textContent=L("backup");
   document.getElementById("restoreBtn").textContent=L("restore");
   document.getElementById("csvBtn").textContent=L("csv");
+  document.getElementById("acctPhone").placeholder=L("phonePh");
+  document.getElementById("acctPin").placeholder=L("pinPh");
+  document.getElementById("acctName").placeholder=L("namePh");
+  document.getElementById("loginBtn").textContent=L("loginBtn");
+  document.getElementById("regBtn").textContent=L("regBtn");
+  document.getElementById("motherLinkBtn").textContent=L("motherPage");
+  renderAcct();
 }
 
 function syncEventUI(){
@@ -412,6 +453,8 @@ function syncEventUI(){
 function loadIntoForm(){
   const p=current.profile, b=current.bools, fs=fieldSets(current.event);
   syncEventUI();
+  const mlb=document.getElementById("motherLinkBtn");
+  if(mlb)mlb.hidden=!current.share;
   document.getElementById("name").value=current.name||"";
   document.getElementById("state").value=p.state||"BR";
   fs.f.forEach(f=>{const el=document.getElementById(fs.prefix+f);if(el&&p[f]!==undefined)el.value=p[f];});
@@ -438,7 +481,96 @@ function buildQuery(){
 function persistCurrent(){
   if(!current.id)return;
   const i=caseload.findIndex(x=>x.id===current.id);
-  if(i>=0){caseload[i]=JSON.parse(JSON.stringify(current));persist();}
+  if(i>=0){current.u=Date.now();caseload[i]=JSON.parse(JSON.stringify(current));persist();scheduleSync();}
+}
+
+// ---- account + server sync (offline-first: this device's localStorage stays the truth;
+//      signing in adds a server copy so the caseload survives a lost/changed phone) ----
+let WORKER=null, syncState="off", syncTimer=null;
+function deletedLog(){try{return JSON.parse(localStorage.getItem("sahej_deleted")||"[]")}catch(e){return[]}}
+function pushDeleted(id){const a=deletedLog();a.push({id:id,updated_at:Date.now()});
+  try{localStorage.setItem("sahej_deleted",JSON.stringify(a))}catch(e){}}
+function clearDeleted(){try{localStorage.setItem("sahej_deleted","[]")}catch(e){}}
+async function api(path,body){
+  const r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(body||{})});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(j.error||"request failed");
+  return j;
+}
+function packCase(m){
+  const p=Object.assign({},m.profile);
+  for(const k in (m.bools||{}))p[k]=!!m.bools[k];
+  p.life_event=m.event||"childbirth";
+  if((m.claimed||[]).length)p.claimed=m.claimed.slice();
+  const ap=Object.entries(m.applied||{}).map(([c,d])=>c+":"+d).join(",");
+  if(ap)p.applied=ap;
+  for(const k in p)if(p[k]==="")delete p[k];
+  return {id:m.id,name:m.name||"",updated_at:m.u||0,profile:p};
+}
+function unpackCase(c){
+  const p=Object.assign({},c.profile);
+  const ev=p.life_event||"childbirth";delete p.life_event;
+  const claimed=Array.isArray(p.claimed)?p.claimed:[];delete p.claimed;
+  const applied={};String(p.applied||"").split(",").forEach(s=>{
+    const i=s.indexOf(":");if(i>0)applied[s.slice(0,i)]=s.slice(i+1);});
+  delete p.applied;
+  const bools={};
+  (ev==="death"?DBOOLS:BOOLS).forEach(k=>{if(k in p){bools[k]=!!p[k];delete p[k];}});
+  return migrate({id:c.id,name:c.name,event:ev,profile:p,bools:bools,claimed:claimed,
+                  applied:applied,u:c.updated_at,share:c.share});
+}
+function setSync(s){syncState=s;renderAcct();}
+async function syncNow(){
+  if(!WORKER||!navigator.onLine){renderAcct();return;}
+  setSync("syncing");
+  try{
+    const r=await api("/api/sync",{cases:caseload.map(packCase),deleted:deletedLog()});
+    const curId=current.id;
+    caseload=r.cases.map(unpackCase);
+    clearDeleted();persist();
+    if(curId){const m=caseload.find(x=>x.id===curId);
+      if(m){current=migrate(JSON.parse(JSON.stringify(m)));loadIntoForm();}}
+    renderCaseload();setSync("ok");
+  }catch(e){setSync("err");}
+}
+function scheduleSync(){if(!WORKER)return;clearTimeout(syncTimer);syncTimer=setTimeout(syncNow,1500);}
+async function whoami(){
+  try{const r=await fetch("/api/me");if(!r.ok)return null;return (await r.json()).worker;}
+  catch(e){return null;}
+}
+function renderAcct(){
+  const line=document.getElementById("acctLine"),form=document.getElementById("authForm");
+  if(!line)return;
+  if(WORKER){
+    form.hidden=true;
+    const dot=syncState==="ok"?"🟢":syncState==="syncing"?"🟡":syncState==="err"?"🔴":"⚪";
+    const sub=syncState==="ok"?L("synced"):syncState==="syncing"?L("syncing"):syncState==="err"?L("syncErr"):"";
+    line.innerHTML=dot+" <b>"+esc(WORKER.name)+"</b> · "+esc(sub)
+      +' <button type="button" class="linkbtn" id="logoutBtn">'+esc(L("signout"))+"</button>";
+    document.getElementById("logoutBtn").addEventListener("click",logout);
+  }else{
+    line.innerHTML='<button type="button" class="linkbtn" id="acctToggle">'+esc(L("signin"))+"</button>"
+      +' <span>· '+esc(L("signinWhy"))+"</span>";
+    document.getElementById("acctToggle").addEventListener("click",()=>{form.hidden=!form.hidden;});
+  }
+}
+function acctErr(msg){const e=document.getElementById("acctErr");e.hidden=!msg;e.textContent=msg||"";}
+async function doAuth(register){
+  const phone=document.getElementById("acctPhone").value.trim();
+  const pin=document.getElementById("acctPin").value.trim();
+  const nameEl=document.getElementById("acctName");
+  if(register&&nameEl.hidden){nameEl.hidden=false;nameEl.focus();acctErr(L("nameFirst"));return;}
+  acctErr("");
+  try{
+    const r=await api(register?"/api/register":"/api/login",
+      {phone:phone,pin:pin,name:nameEl.value.trim()});
+    WORKER=r.worker;nameEl.hidden=true;renderAcct();syncNow();
+  }catch(e){acctErr(e.message);}
+}
+async function logout(){
+  try{await api("/api/logout",{});}catch(e){/* offline logout still clears locally */}
+  WORKER=null;setSync("off");
 }
 
 let view="mother";
@@ -521,7 +653,7 @@ function renderPlan(pl){
   });
 }
 function setOffline(off){document.getElementById("offlineBanner").classList.toggle("on",!!off);}
-window.addEventListener("online",()=>{setOffline(false);run();});
+window.addEventListener("online",()=>{setOffline(false);run();scheduleSync();});
 window.addEventListener("offline",()=>setOffline(true));
 if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{});}
 
@@ -670,16 +802,17 @@ function selectMother(id){const m=caseload.find(x=>x.id===id);if(!m)return;curre
 function delMother(id){
   const m=caseload.find(x=>x.id===id);
   if(!confirm("Remove "+((m&&m.name)||"this mother")+" from the caseload? This cannot be undone."))return;
-  caseload=caseload.filter(x=>x.id!==id);persist();
+  caseload=caseload.filter(x=>x.id!==id);persist();pushDeleted(id);scheduleSync();
   if(current.id===id){current=newMother();loadIntoForm();}
   renderCaseload();run();}
 function saveMother(){
   formToCurrent();
   if(!current.id)current.id="m"+Date.now();
+  current.u=Date.now();
   const i=caseload.findIndex(x=>x.id===current.id);
   const snap=JSON.parse(JSON.stringify(current));
   if(i>=0)caseload[i]=snap;else caseload.push(snap);
-  persist();renderCaseload();
+  persist();renderCaseload();scheduleSync();
 }
 
 function shareText(){
@@ -712,8 +845,8 @@ function loadDemo(){
       deceased_age_years:42,applicant_age_years:41},
       bools:{bpl:true,was_breadwinner:true,accidental_death:true,deceased_had_bank_account:true,
         construction_worker:true,has_aadhaar:true,has_bank_account:true}}),
-  ].map(migrate);
-  persist();renderCaseload();setView("today");
+  ].map(m=>{m.u=Date.now();return migrate(m);});
+  persist();renderCaseload();scheduleSync();setView("today");
 }
 
 // ---- voice intake (Web Speech API; hi-IN / en-IN) ----
@@ -824,7 +957,7 @@ document.getElementById("restoreFile").addEventListener("change",e=>{
       const data=JSON.parse(rd.result);
       if(!Array.isArray(data))throw new Error("not a caseload file");
       if(!confirm("Replace the current caseload ("+caseload.length+" mothers) with "+data.length+" from this backup?"))return;
-      caseload=data.map(migrate);persist();
+      caseload=data.map(m=>{m.u=Date.now();return migrate(m);});persist();scheduleSync();
       current=newMother();loadIntoForm();renderCaseload();setView(caseload.length?"today":"mother");
     }catch(err){alert("Could not read backup: "+err.message);}
     finally{e.target.value="";}
@@ -848,6 +981,15 @@ document.getElementById("csvBtn").addEventListener("click",async()=>{
   }catch(err){alert("Report failed: "+err.message);}
 });
 document.getElementById("printBtn").addEventListener("click",()=>window.print());
+document.getElementById("loginBtn").addEventListener("click",()=>doAuth(false));
+document.getElementById("regBtn").addEventListener("click",()=>doAuth(true));
+document.getElementById("motherLinkBtn").addEventListener("click",()=>{
+  if(!current.share)return;
+  const url=location.origin+"/m/"+current.share;
+  const txt=L("motherMsg")+" "+url;
+  if(navigator.share){navigator.share({text:txt}).catch(()=>{});return;}
+  window.open("https://wa.me/?text="+encodeURIComponent(txt),"_blank","noopener");
+});
 document.getElementById("shareBtn").addEventListener("click",()=>{
   const t=shareText();
   if(navigator.share){navigator.share({text:t}).catch(()=>{});}

@@ -81,27 +81,43 @@ first installment and only about 1 in 10 received all three.
 | `data/childbirth_schemes.json` | **The asset.** Structured, sourced rules + all **36 states/UTs** (LPS·HPS, opt-outs). |
 | `data/death_schemes.json` | **Second life event** on the same engine: death registration, NFBS, widow pension, PMJJBY/PMSBY insurance claims, EPF/EPS/EDLI, BOCW death benefit, heir certificate. |
 | `engine.py` | Pure-stdlib resolver: eligibility, blocking, claimed-tracking, urgency, documents, sensitive-mode, migrants, **input validation**. CLI + `meta()`. |
-| `serve.py` | Zero-dependency hardened server: pages, API, static/PWA assets, security headers (CSP, nosniff, frame-deny), traversal-safe. |
+| `store.py` | **Accounts + storage** (SQLite, stdlib): phone + PIN sign-in (PBKDF2-hashed, rate-limited), 30-day cookie sessions, per-worker caseload sync (last-write-wins, tombstone deletes), unguessable per-case share tokens. |
+| `serve.py` | Zero-dependency hardened server: pages, API, auth routes, static/PWA assets, security headers (CSP, nosniff, frame-deny), traversal-safe. |
 | `web/landing.html` | The story: problem, insight, how it works, coverage, partner CTA. |
+| `web/mother.html` | **The mother's own page** (`/m/<token>`): read-only, Hindi-first, big type — her money, next step, documents and checklist. Shared by the ASHA over WhatsApp; no app, no login. |
 | `web/index.html` | The ASHA tool (PWA): **Today work plan** across the caseload, application lifecycle (**applied → received, stuck-payment detection + complaint generator**), where-to-apply & grievance channels, **voice intake (Hindi/English speech → filled form)**, **life-event selector (childbirth / death in family)**, one-tap **demo caseload**, caseload **backup/restore + CSV block report**, EN⇄HI, docs checklist, alerts, share, **offline support**. |
 | `web/sw.js` + `manifest.webmanifest` + icons | Installable app; shell cached offline, last plans available without signal. |
-| `test_engine.py` + `test_server.py` | **78 checks**: full scenario matrix + HTTP routing/validation/security. CI runs them on every push. |
+| `test_engine.py` + `test_server.py` + `test_store.py` | **158 checks**: full scenario matrix, HTTP routing/validation/security, accounts/sessions/sync. CI runs them on every push. |
 | `tools/` | Reproducible generators for the README charts and PWA icons. |
 
 ## Run it
 
 ```bash
-python3 test_engine.py     # 57 scenario checks
-python3 test_server.py     # 21 HTTP/security checks
+python3 test_engine.py     # 85 scenario checks
+python3 test_server.py     # 44 HTTP/security checks
+python3 test_store.py      # 29 account/session/sync checks
 python3 engine.py --state BR --birth-date 2026-06-01 --child-number 1 --child-sex girl \
     --area rural --mother-age 24                     # CLI report
 python3 engine.py --birth-outcome stillbirth --state BR    # sensitive case
 python3 serve.py           # http://localhost:8000 — landing at /, app at /app
 ```
 
-No dependencies — Python 3.9+ standard library only. The web app installs to the
-home screen (PWA) and keeps working offline: the shell and each mother's last
-computed plan are cached on the phone.
+No dependencies — Python 3.9+ standard library only (SQLite included). The web app
+installs to the home screen (PWA) and keeps working offline: the shell and each
+mother's last computed plan are cached on the phone.
+
+### Two interfaces, one engine
+
+- **The ASHA's tool** (`/app`) — works with no account at all: the caseload lives in the
+  phone's own storage, fully offline. Signing in (mobile number + PIN, in the caseload
+  panel) adds a server copy, so the caseload survives a lost or changed phone — and
+  unlocks the second interface:
+- **The mother's page** (`/m/<secret-token>`) — every synced case gets a private link
+  the ASHA can send on WhatsApp. The mother sees her own money, her next step and her
+  documents in large Hindi type. Read-only, nothing to install, no login — the
+  unguessable link is the key. Data stays minimal: the server stores only what the
+  ASHA entered; PINs are salted-and-hashed, sessions are HttpOnly cookies, and wrong
+  PINs rate-limit.
 
 ## Deploy
 
@@ -165,6 +181,6 @@ current Government Orders before real use.** Not medical or legal advice.
 
 ## Beyond this MVP
 
-Voice intake (Bhashini), WhatsApp delivery, real auth/DB & multi-ASHA dashboards,
-auto-submission to government portals, and the next life events (death/survivor,
-disability, job loss) on the same engine.
+WhatsApp-native delivery, supervisor/block dashboards on top of the synced caseloads,
+auto-submission to government portals, Bhashini for deeper language coverage, and the
+next life events (disability, job loss) on the same engine.

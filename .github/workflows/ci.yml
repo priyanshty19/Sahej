@@ -20,8 +20,10 @@ jobs:
         run: python3 test_engine.py
       - name: Server tests
         run: python3 test_server.py
-      - name: Knowledge base is valid JSON
-        run: python3 -c "import json; json.load(open('data/childbirth_schemes.json'))"
+      - name: Store tests (accounts, sessions, sync)
+        run: python3 test_store.py
+      - name: Knowledge bases are valid JSON
+        run: python3 -c "import json; [json.load(open(f)) for f in ('data/childbirth_schemes.json','data/death_schemes.json','data/states.json')]"
       - name: Charts & icons regenerate cleanly
         run: |
           python3 tools/make_charts.py
