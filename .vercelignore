@@ -1,0 +1,13 @@
+# Keep the serverless bundle lean — none of this is needed at runtime.
+test_engine.py
+test_server.py
+test_store.py
+tools/
+docs/
+.github/
+PRODUCT_PLAN.md
+Dockerfile
+data/sahej.db
+data/*.db*
+__pycache__/
+*.pyc

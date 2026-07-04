@@ -14,3 +14,9 @@ venv/
 # Local database (worker accounts + synced caseloads — never commit)
 data/sahej.db
 data/*.db*
+
+# Secrets / deploy
+.env
+.env.*
+!.env.example
+.vercel/

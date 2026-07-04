@@ -1,0 +1,5 @@
+# Sahej runs on the Python standard library alone for local dev and CI.
+# The one production dependency is the Postgres driver used ONLY when
+# DATABASE_URL points at Neon (see store.py). Local runs and tests never
+# import it.
+psycopg2-binary==2.9.9

@@ -87,6 +87,7 @@ first installment and only about 1 in 10 received all three.
 | `web/mother.html` | **The mother's own page** (`/m/<token>`): read-only, Hindi-first, big type — her money, next step, documents and checklist. Shared by the ASHA over WhatsApp; no app, no login. |
 | `web/index.html` | The ASHA tool (PWA): **Today work plan** across the caseload, application lifecycle (**applied → received, stuck-payment detection + complaint generator**), where-to-apply & grievance channels, **voice intake (Hindi/English speech → filled form)**, **life-event selector (childbirth / death in family)**, one-tap **demo caseload**, caseload **backup/restore + CSV block report**, EN⇄HI, docs checklist, alerts, share, **offline support**. |
 | `web/sw.js` + `manifest.webmanifest` + icons | Installable app; shell cached offline, last plans available without signal. |
+| `api/index.py` + `vercel.json` + `requirements.txt` | **Vercel deploy**: re-exports the handler as a serverless function, routes all paths to it, pulls the Postgres driver. |
 | `test_engine.py` + `test_server.py` + `test_store.py` | **158 checks**: full scenario matrix, HTTP routing/validation/security, accounts/sessions/sync. CI runs them on every push. |
 | `tools/` | Reproducible generators for the README charts and PWA icons. |
 
@@ -121,14 +122,37 @@ mother's last computed plan are cached on the phone.
 
 ## Deploy
 
-Anywhere a container runs (Railway, Fly.io, Render, a ₹300/mo VPS):
+The same `serve.Handler` runs three ways — pick one; no code changes.
+
+### Vercel + Neon (the hosted setup)
+
+Serverless, scales to zero, free tier fits a pilot. The repo ships ready:
+`api/index.py` re-exports the handler, `vercel.json` routes every path to it and
+bundles `web/` + `data/`, `requirements.txt` pulls the Postgres driver.
+
+1. **Database — Neon.** Create a project at [neon.tech](https://neon.tech), copy the
+   **pooled** connection string (the host has `-pooler` in it).
+2. **Import the repo** into [vercel.com](https://vercel.com/new) (or `vercel` from this
+   folder). Framework preset: **Other** — Vercel auto-detects the Python function.
+3. **Set env vars** in the Vercel project → Settings → Environment Variables:
+   - `DATABASE_URL` = the Neon pooled string
+   - `SAHEJ_SECURE` = `1`  (marks the session cookie Secure)
+4. Deploy. Every `git push` to `main` ships automatically.
+
+Storage lives in Neon Postgres; the same schema is created on first request. Without
+`DATABASE_URL` the app still boots and the offline-first ASHA tool works — only
+accounts, sync and the mother's page need the database.
+
+### Container (Railway, Fly.io, Render, a ₹300/mo VPS)
 
 ```bash
 docker build -t sahej . && docker run -p 8000:8000 sahej
 ```
 
-Or bare: `HOST=0.0.0.0 python3 serve.py` — there is nothing else to install.
-`GET /healthz` is the liveness probe.
+### Bare metal
+
+`HOST=0.0.0.0 python3 serve.py` — nothing to install (SQLite is used automatically
+when `DATABASE_URL` is unset). `GET /healthz` is the liveness probe.
 
 ## Scenarios the engine handles
 

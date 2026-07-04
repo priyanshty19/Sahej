@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Sahej storage layer — SQLite via the standard library, nothing else.
+Sahej storage layer — one small data model, two interchangeable backends.
 
 Holds worker accounts (phone + PIN, PBKDF2-hashed), login sessions, and each
 worker's caseload. The browser's localStorage remains the offline source of
@@ -8,7 +8,18 @@ truth; the server copy exists so a worker can move phones, a supervisor can
 (later) aggregate, and each case gets an unguessable share token that powers
 the mother-facing page at /m/<token>.
 
-Set SAHEJ_DB to override the database path (tests point it at a temp file).
+Backend selection (decided once, at import, from the environment):
+  * DATABASE_URL set to a postgres:// URL  -> Neon / any Postgres (production).
+  * otherwise                              -> SQLite on local disk (dev + tests).
+
+The SQLite path keeps Sahej dependency-free for local work and CI; the Postgres
+path is what runs on Vercel, where the filesystem is read-only and every request
+may hit a fresh instance. The SQL is written once with `?` placeholders and a
+thin wrapper translates for whichever driver is active.
+
+Env:
+  DATABASE_URL   postgres connection string (use Neon's pooled -pooler host).
+  SAHEJ_DB       override the SQLite file path (tests point it at a temp file).
 """
 import hashlib
 import hmac
@@ -19,8 +30,21 @@ import secrets
 import sqlite3
 import time
 
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+_PG = DATABASE_URL.startswith(("postgres://", "postgresql://"))
+
 HERE = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.environ.get("SAHEJ_DB") or os.path.join(HERE, "data", "sahej.db")
+if _PG:
+    import psycopg2
+    import psycopg2.extras
+    _UNIQUE_ERRORS = (psycopg2.IntegrityError,)
+    DB_PATH = None
+else:
+    # On Vercel without a database the only writable place is /tmp (ephemeral,
+    # per-instance) — good enough to boot, though real data needs DATABASE_URL.
+    _default = "/tmp/sahej.db" if os.environ.get("VERCEL") else os.path.join(HERE, "data", "sahej.db")
+    DB_PATH = os.environ.get("SAHEJ_DB") or _default
+    _UNIQUE_ERRORS = (sqlite3.IntegrityError,)
 
 SESSION_DAYS = 30
 PBKDF2_ITERS = 200_000
@@ -38,23 +62,87 @@ class StoreError(ValueError):
     """User-safe storage/validation error."""
 
 
+# --- backend-agnostic connection ---------------------------------------------
+
+class _Conn:
+    """Wraps a sqlite3 or psycopg2 connection behind one small interface.
+
+    execute(sql, params) accepts `?` placeholders and dict-keyed rows for both
+    drivers; iterate the returned cursor or call fetchone()/fetchall().
+    """
+
+    def __init__(self, raw):
+        self._raw = raw
+
+    def execute(self, sql, params=()):
+        if _PG:
+            cur = self._raw.cursor()
+            cur.execute(sql.replace("?", "%s"), params)
+            return cur
+        return self._raw.execute(sql, params)
+
+    def commit(self):
+        self._raw.commit()
+
+    def rollback(self):
+        try:
+            self._raw.rollback()
+        except Exception:  # noqa: BLE001
+            pass
+
+    def close(self):
+        self._raw.close()
+
+
 _initialized = False
 
 
 def _connect():
     global _initialized
-    con = sqlite3.connect(DB_PATH, timeout=10)
-    con.row_factory = sqlite3.Row
-    con.execute("PRAGMA journal_mode=WAL")
-    con.execute("PRAGMA foreign_keys=ON")
+    if _PG:
+        raw = psycopg2.connect(DATABASE_URL, connect_timeout=10,
+                               cursor_factory=psycopg2.extras.RealDictCursor)
+    else:
+        raw = sqlite3.connect(DB_PATH, timeout=10)
+        raw.row_factory = sqlite3.Row
+        raw.execute("PRAGMA journal_mode=WAL")
+        raw.execute("PRAGMA foreign_keys=ON")
+    con = _Conn(raw)
     if not _initialized:
         _init(con)
         _initialized = True
     return con
 
 
-def _init(con):
-    con.executescript("""
+# Schema differs only in column types and the auto-increment key.
+_SCHEMA_PG = [
+    """CREATE TABLE IF NOT EXISTS workers(
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        phone TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        pin_hash BYTEA NOT NULL,
+        salt BYTEA NOT NULL,
+        failed_attempts INTEGER NOT NULL DEFAULT 0,
+        locked_until DOUBLE PRECISION NOT NULL DEFAULT 0,
+        created_at DOUBLE PRECISION NOT NULL)""",
+    """CREATE TABLE IF NOT EXISTS sessions(
+        token_hash TEXT PRIMARY KEY,
+        worker_id BIGINT NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+        created_at DOUBLE PRECISION NOT NULL,
+        expires_at DOUBLE PRECISION NOT NULL)""",
+    """CREATE TABLE IF NOT EXISTS cases(
+        id TEXT NOT NULL,
+        worker_id BIGINT NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+        name TEXT NOT NULL DEFAULT '',
+        profile TEXT NOT NULL,
+        updated_at DOUBLE PRECISION NOT NULL,
+        deleted INTEGER NOT NULL DEFAULT 0,
+        share_token TEXT UNIQUE NOT NULL,
+        PRIMARY KEY (worker_id, id))""",
+    "CREATE INDEX IF NOT EXISTS idx_cases_share ON cases(share_token)",
+]
+
+_SCHEMA_SQLITE = """
     CREATE TABLE IF NOT EXISTS workers(
         id INTEGER PRIMARY KEY,
         phone TEXT UNIQUE NOT NULL,
@@ -82,12 +170,25 @@ def _init(con):
         PRIMARY KEY (worker_id, id)
     );
     CREATE INDEX IF NOT EXISTS idx_cases_share ON cases(share_token);
-    """)
-    con.commit()
+"""
 
+
+def _init(con):
+    try:
+        if _PG:
+            for stmt in _SCHEMA_PG:
+                con.execute(stmt)
+        else:
+            con._raw.executescript(_SCHEMA_SQLITE)
+        con.commit()
+    except Exception:  # noqa: BLE001 — concurrent cold starts may race on CREATE
+        con.rollback()
+
+
+# --- hashing helpers ----------------------------------------------------------
 
 def _hash_pin(pin, salt):
-    return hashlib.pbkdf2_hmac("sha256", pin.encode("utf-8"), salt, PBKDF2_ITERS)
+    return hashlib.pbkdf2_hmac("sha256", pin.encode("utf-8"), bytes(salt), PBKDF2_ITERS)
 
 
 def _token_hash(token):
@@ -112,6 +213,8 @@ def _check_pin_format(pin):
         raise StoreError("PIN must be 4-8 digits")
 
 
+# --- accounts -----------------------------------------------------------------
+
 def create_worker(phone, name, pin):
     phone = normalize_phone(phone)
     _check_pin_format(pin)
@@ -125,7 +228,8 @@ def create_worker(phone, name, pin):
             "INSERT INTO workers(phone, name, pin_hash, salt, created_at) VALUES(?,?,?,?,?)",
             (phone, name, _hash_pin(str(pin), salt), salt, time.time()))
         con.commit()
-    except sqlite3.IntegrityError:
+    except _UNIQUE_ERRORS:
+        con.rollback()
         raise StoreError("this number is already registered — sign in instead")
     finally:
         con.close()
@@ -144,7 +248,7 @@ def verify_login(phone, pin):
         if row["locked_until"] > now:
             wait = int(row["locked_until"] - now) + 1
             raise StoreError(f"too many wrong PINs — try again in {wait} seconds")
-        if not hmac.compare_digest(_hash_pin(str(pin), row["salt"]), row["pin_hash"]):
+        if not hmac.compare_digest(_hash_pin(str(pin), row["salt"]), bytes(row["pin_hash"])):
             failed = row["failed_attempts"] + 1
             locked = now + LOCK_SECONDS if failed >= MAX_FAILED else 0
             con.execute("UPDATE workers SET failed_attempts=?, locked_until=? WHERE id=?",
@@ -157,6 +261,8 @@ def verify_login(phone, pin):
     finally:
         con.close()
 
+
+# --- sessions -----------------------------------------------------------------
 
 def create_session(worker_id):
     token = secrets.token_urlsafe(32)
@@ -196,6 +302,8 @@ def delete_session(token):
     finally:
         con.close()
 
+
+# --- caseload sync ------------------------------------------------------------
 
 def sync_cases(worker_id, cases, deleted=None):
     """Last-write-wins merge of the client caseload into the server copy.
