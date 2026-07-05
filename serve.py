@@ -163,9 +163,13 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = unquote(parsed.path)
 
-        if path in ("/", "/landing", "/landing.html"):
+        if path == "/":
+            return self._file("explore.html")
+        if path.startswith("/scheme/") and "/" not in path[len("/scheme/"):]:
+            return self._file("explore.html")
+        if path in ("/about", "/landing", "/landing.html"):
             return self._file("landing.html")
-        if path in ("/app", "/app.html", "/index.html"):
+        if path in ("/asha", "/app", "/app.html", "/index.html"):
             return self._file("index.html")
         if path == "/api/meta":
             return self._json(200, meta())

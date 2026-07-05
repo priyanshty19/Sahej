@@ -68,7 +68,8 @@ def run():
     try:
         # Pages
         code, hdrs, body = get(base, "/")
-        chk("GET / -> 200 landing", code == 200 and b"Sahej" in body)
+        chk("GET / -> 200 explore marketplace", code == 200 and b"Sahej" in body
+            and b"api/schemes" in body)
         chk("/ is html", hdrs.get("Content-Type", "").startswith("text/html"))
         chk("/ has CSP header", "Content-Security-Policy" in hdrs)
         chk("/ has nosniff", hdrs.get("X-Content-Type-Options") == "nosniff")
@@ -79,6 +80,34 @@ def run():
 
         code, _, body = get(base, "/app", method="HEAD")
         chk("HEAD /app -> 200 empty body", code == 200 and body == b"")
+
+        code, _, body = get(base, "/asha")
+        chk("GET /asha -> 200 same tool", code == 200 and b"caseload" in body.lower())
+
+        code, _, body = get(base, "/about")
+        chk("GET /about -> 200 story page", code == 200 and b"Sahej" in body)
+
+        # Marketplace API
+        code, _, body = get(base, "/api/schemes")
+        r = json.loads(body)
+        chk("GET /api/schemes -> 50+ cards", code == 200 and r["total"] >= 50)
+
+        code, _, body = get(base, "/api/schemes?occupation=farmer&state=MP")
+        r = json.loads(body)
+        chk("schemes filter via query", code == 200
+            and any(s["id"] == "pm_kisan" for s in r["schemes"])
+            and all(s["id"] != "lakshmir_bhandar_wb" for s in r["schemes"]))
+
+        code, _, body = get(base, "/api/scheme/pm_kisan")
+        chk("scheme detail route", code == 200 and json.loads(body)["apply"]["url"])
+        code, _, _ = get(base, "/api/scheme/nope_xyz")
+        chk("unknown scheme -> 404", code == 404)
+
+        code, _, body = get(base, "/api/facets")
+        chk("facets route", code == 200 and "farmer" in json.loads(body)["occupations"])
+
+        code, _, body = get(base, "/scheme/pm_kisan")
+        chk("GET /scheme/<id> serves explore shell", code == 200 and b"api/schemes" in body)
 
         # API
         code, _, body = get(base, "/api/meta")
