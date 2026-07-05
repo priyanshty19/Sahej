@@ -93,8 +93,7 @@
     </div>
     <div class="hbtns">
       <button id="langBtn">हिन्दी</button>
-      <a href="/asha" id="t-asha">ASHA tool</a>
-      <a href="/about" id="t-about">Why Sahej</a>
+      <a href="/about" id="t-asha">ASHA tool</a>
     </div>
   </div>
 </header>
@@ -173,7 +172,6 @@ function applyLang(){
   document.getElementById("t-tag").textContent=L("tag");
   document.getElementById("langBtn").textContent=L("lang");
   document.getElementById("t-asha").textContent=L("asha");
-  document.getElementById("t-about").textContent=L("about");
   document.getElementById("q").placeholder=L("search");
   for(const [id,k] of [["l-state","state"],["l-gender","gender"],["l-age","age"],["l-cat","cat"],
     ["l-occ","occ"],["l-btype","btype"],["l-bpl","bpl"],["l-dis","dis"],["l-rural","rural"],
