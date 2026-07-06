@@ -32,8 +32,39 @@
   .hbtns button{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.35);
     padding:6px 11px;border-radius:8px;font-size:12.5px;cursor:pointer}
   .hbtns button:hover{background:rgba(255,255,255,.28)}
-  .wrap{max-width:1180px;margin:0 auto;padding:18px;display:grid;grid-template-columns:300px 360px 1fr;gap:16px}
-  @media(max-width:1080px){.wrap{grid-template-columns:1fr}}
+  /* 3-screen router: one screen at a time on phones; sidebar + main pane on desktop */
+  .app{max-width:1180px;margin:0 auto;padding:18px}
+  .screen{display:none}
+  .mainpane{min-width:0}
+  .app[data-screen="home"] .screen-home{display:block}
+  .app[data-screen="mother"] .screen-mother{display:block}
+  .app[data-screen="form"] .screen-form{display:block}
+  .backbar{display:flex;align-items:center;gap:9px;margin:-2px 0 12px}
+  .backbtn{background:#fff;border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:15px;
+    font-weight:600;color:var(--brand);cursor:pointer;line-height:1}
+  .backbar .who{font-weight:700;font-size:15.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .backbar .act{border:1px solid var(--brand);background:#fff;color:var(--brand);border-radius:8px;
+    padding:7px 11px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .placeholder{display:none;color:var(--muted);text-align:center;padding:64px 22px;font-size:14.5px;
+    border:1px dashed var(--line);border-radius:16px;background:var(--panel)}
+  .tabbar{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--panel);border-top:1px solid var(--line);
+    z-index:30;padding-bottom:env(safe-area-inset-bottom)}
+  .tabbar button{flex:1;background:none;border:none;padding:9px 4px 8px;font-size:11px;color:var(--muted);cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:3px}
+  .tabbar button .ic{font-size:19px;line-height:1}
+  .tabbar button.on{color:var(--brand);font-weight:700}
+  body{padding-bottom:64px}   /* clear the fixed mobile tab bar */
+  @media(min-width:900px){
+    .app{display:grid;grid-template-columns:330px 1fr;gap:16px;align-items:start}
+    .screen-home{display:block!important}
+    .mainpane .screen{display:none}
+    .app[data-screen="mother"] .screen-mother{display:block}
+    .app[data-screen="form"] .screen-form{display:block}
+    .app[data-screen="home"] .placeholder{display:block}
+    .backbar .backbtn{display:none}
+    .tabbar{display:none}
+    body{padding-bottom:0}
+  }
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
   .panel h2{margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
   label{display:block;font-size:12px;color:var(--muted);margin:9px 0 3px}
@@ -145,7 +176,8 @@
   .acct-err{color:#b91c1c;font-size:12.5px;margin-top:4px}
   .linkbtn{background:none;border:none;color:var(--rail,#0f766e);font-size:13px;font-weight:600;
            cursor:pointer;padding:0;text-decoration:underline}
-  @media print{.panel.form,.panel.case-panel,header .hbtns,.offline{display:none}.wrap{grid-template-columns:1fr}}
+  @media print{.screen-home,.screen-form,.placeholder,header .hbtns,.offline,.backbar,.tabbar{display:none!important}
+    .screen-mother{display:block!important}}
 </style>
 </head>
 <body>
@@ -162,10 +194,14 @@
   </div>
 </header>
 
-<div class="wrap">
-  <!-- CASELOAD -->
-  <div class="panel case-panel">
-    <h2 id="t-caseload">My caseload</h2>
+<div class="app" id="app" data-screen="home">
+  <!-- SCREEN 1: HOME — caseload + today -->
+  <aside class="panel screen screen-home">
+    <div class="tabs" role="tablist">
+      <button id="homeToday" role="tab" aria-selected="false">Today</button>
+      <button id="homeAll" role="tab" aria-selected="true" class="on">Caseload</button>
+    </div>
+    <div id="homePlan" aria-live="polite" hidden></div>
     <div id="caseList"></div>
     <button class="btn sec" id="newBtn">+ New mother</button>
     <div class="tools">
@@ -187,16 +223,31 @@
         <div id="acctErr" class="acct-err" hidden role="alert"></div>
       </div>
     </div>
-  </div>
+  </aside>
 
-  <!-- FORM -->
-  <form class="panel form" id="form">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <h2 id="t-mother" style="margin:0">This mother</h2>
-      <button type="button" id="micBtn" class="abtn" hidden aria-label="Voice input">🎤 <span id="t-voice">Speak</span></button>
-    </div>
-    <div id="voiceOut" class="none" hidden style="margin:8px 0 0"></div>
-    <label id="l-event" for="life_event">Life event</label>
+  <div class="mainpane">
+    <div class="placeholder" id="t-ph">Pick a mother from the list, or tap “+ New mother”.</div>
+
+    <!-- SCREEN 2: MOTHER — her plan -->
+    <section class="panel screen screen-mother">
+      <div class="backbar">
+        <button type="button" class="backbtn" id="backFromMother" aria-label="Back to caseload">←</button>
+        <span class="who" id="motherWho"></span>
+        <button type="button" class="act" id="editBtn">✎ <span id="t-edit">Edit</span></button>
+        <button type="button" class="act" id="motherLinkBtn" hidden>📱 Mother's page</button>
+      </div>
+      <div id="results" aria-live="polite" aria-busy="true"><p class="profile-line">Loading…</p></div>
+    </section>
+
+    <!-- SCREEN 3: FORM — add / edit -->
+    <form class="panel screen screen-form" id="form">
+      <div class="backbar">
+        <button type="button" class="backbtn" id="backFromForm" aria-label="Back to caseload">←</button>
+        <span class="who" id="t-mother">This mother</span>
+        <button type="button" id="micBtn" class="act" hidden aria-label="Voice input">🎤 <span id="t-voice">Speak</span></button>
+      </div>
+      <div id="voiceOut" class="none" hidden style="margin:0 0 8px"></div>
+      <label id="l-event" for="life_event">Life event</label>
     <select id="life_event">
       <option value="childbirth">Childbirth</option>
       <option value="death">Death in family</option>
@@ -265,19 +316,15 @@
     </details>
     </div><!-- /cbFields -->
 
-    <button type="button" class="btn" id="saveBtn">Save to caseload</button>
-    <button type="button" class="btn sec" id="motherLinkBtn" hidden>📱 Mother's page</button>
-  </form>
-
-  <!-- RESULTS -->
-  <div class="panel">
-    <div class="tabs" role="tablist">
-      <button id="tabToday" role="tab" aria-selected="false">Today</button>
-      <button id="tabMother" role="tab" aria-selected="true" class="on">This mother</button>
-    </div>
-    <div id="results" aria-live="polite" aria-busy="true"><p class="profile-line">Loading…</p></div>
+    <button type="button" class="btn" id="saveBtn">Save &amp; view plan</button>
+    </form>
   </div>
 </div>
+
+<nav class="tabbar" aria-label="Sections">
+  <button id="navHome" class="on"><span class="ic">📋</span><span id="t-navhome">Caseload</span></button>
+  <button id="navAdd"><span class="ic">＋</span><span id="t-navadd">Add mother</span></button>
+</nav>
 <footer id="kbnote"></footer>
 
 <script>
@@ -328,7 +375,8 @@ const I18N = {
     phonePh:"Mobile number",pinPh:"PIN (4–8 digits)",namePh:"Your name (for a new account)",
     loginBtn:"Sign in",regBtn:"New account",motherPage:"📱 Mother's page",
     motherMsg:"Namaste! This page lists every government benefit for your family, with dates. Open it anytime:",
-    motherLinkHint:"Save + sign in to get a shareable page for the mother."},
+    motherLinkHint:"Save + sign in to get a shareable page for the mother.",
+    navHome:"Caseload",navAdd:"Add mother",edit:"Edit",pickMother:"Pick a mother from the list, or tap “+ New mother”.",caseloadTab:"Caseload"},
   hi:{title:"सहज · Sahej",tag:"आशा कार्यकर्ता की सहायक — हर नई माँ का हक़, उन्हीं दिनों पर जब आप पहले से जाती हैं।",
     caseload:"मेरी सूची",mother:"यह माँ",name:"नाम / पहचान",state:"राज्य / केंद्रशासित",area:"क्षेत्र",delivery:"प्रसव",
     childnum:"संतान क्रमांक",childsex:"शिशु लिंग",age:"माँ की उम्र",birth:"जन्म तिथि",outcome:"जन्म परिणाम",moutcome:"माँ",
@@ -355,7 +403,8 @@ const I18N = {
     phonePh:"मोबाइल नंबर",pinPh:"पिन (4–8 अंक)",namePh:"आपका नाम (नए खाते हेतु)",
     loginBtn:"साइन इन",regBtn:"नया खाता",motherPage:"📱 माँ का पेज",
     motherMsg:"नमस्ते! इस पेज पर आपके परिवार के सभी सरकारी लाभ तारीख़ों के साथ हैं। कभी भी खोलें:",
-    motherLinkHint:"माँ का साझा पेज पाने के लिए सहेजें + साइन इन करें।"},
+    motherLinkHint:"माँ का साझा पेज पाने के लिए सहेजें + साइन इन करें।",
+    navHome:"सूची",navAdd:"नई माँ",edit:"बदलें",pickMother:"सूची से माँ चुनें, या “+ नई माँ” दबाएँ।",caseloadTab:"सूची"},
 };
 
 let META=null, lang="en";
@@ -407,8 +456,9 @@ async function init(){
   document.getElementById("d_death_date").value=today();
   setupVoice();
   caseload=caseload.map(migrate);
-  applyLang(); loadIntoForm(); renderCaseload();
-  setView(caseload.length?"today":"mother");
+  applyLang(); loadIntoForm();
+  setHomeTab(caseload.length?"today":"all");
+  go("home");
   WORKER=await whoami();
   renderAcct();
   if(WORKER)syncNow();
@@ -430,8 +480,12 @@ function applyLang(){
   for(const id in map){const el=document.getElementById(id);if(el)el.textContent=L(map[id]);}
   document.getElementById("saveBtn").textContent=L("save");
   document.getElementById("newBtn").textContent=L("newm");
-  document.getElementById("tabToday").textContent=L("today");
-  document.getElementById("tabMother").textContent=L("thisMother");
+  document.getElementById("homeToday").textContent=L("today");
+  document.getElementById("homeAll").textContent=L("caseloadTab");
+  document.getElementById("t-edit").textContent=L("edit");
+  document.getElementById("t-navhome").textContent=L("navHome");
+  document.getElementById("t-navadd").textContent=L("navAdd");
+  document.getElementById("t-ph").textContent=L("pickMother");
   document.getElementById("backupBtn").textContent=L("backup");
   document.getElementById("restoreBtn").textContent=L("restore");
   document.getElementById("csvBtn").textContent=L("csv");
@@ -573,15 +627,29 @@ async function logout(){
   WORKER=null;setSync("off");
 }
 
-let view="mother";
-function setView(v){
-  view=v;
-  for(const [id,on] of [["tabToday",v==="today"],["tabMother",v==="mother"]]){
-    const el=document.getElementById(id);el.classList.toggle("on",on);el.setAttribute("aria-selected",on);
-  }
-  refresh();
+// ---- screen router: home | mother | form (bottom-nav on phones, sidebar on desktop) ----
+let screen="home", homeTab="all";
+function go(s){
+  screen=s;
+  document.getElementById("app").dataset.screen=s;
+  document.getElementById("navHome").classList.toggle("on",s==="home");
+  document.getElementById("navAdd").classList.toggle("on",s==="form");
+  if(s==="home")refreshHome();
+  else if(s==="mother")run();
+  window.scrollTo(0,0);
 }
-function refresh(){view==="today"?runToday():run();}
+function setHomeTab(t){
+  homeTab=t;
+  document.getElementById("homeToday").classList.toggle("on",t==="today");
+  document.getElementById("homeAll").classList.toggle("on",t==="all");
+  document.getElementById("homeToday").setAttribute("aria-selected",t==="today");
+  document.getElementById("homeAll").setAttribute("aria-selected",t==="all");
+  document.getElementById("homePlan").hidden=(t!=="today");
+  document.getElementById("caseList").hidden=(t==="today");
+  refreshHome();
+}
+function refreshHome(){homeTab==="today"?runToday():renderCaseload();}
+function refresh(){screen==="home"?refreshHome():(screen==="mother"?run():null);}
 
 async function run(){
   const box=document.getElementById("results");
@@ -607,7 +675,7 @@ function flatten(m){
 }
 
 async function runToday(){
-  const box=document.getElementById("results");
+  const box=document.getElementById("homePlan");
   box.setAttribute("aria-busy","true");
   if(!caseload.length){box.innerHTML='<p class="profile-line">'+L("planEmpty")+'</p>';box.setAttribute("aria-busy","false");return;}
   try{
@@ -644,7 +712,7 @@ function renderPlan(pl){
       +'<div class="chips">'+chips.join("")+'</div>'+(acts?'<ul>'+acts+'</ul>':'')+'</div>';
   });
   pl.errors.forEach(er=>{h+='<div class="alert a-blocker">'+esc(er.name)+': '+esc(er.error)+'</div>';});
-  const box=document.getElementById("results");
+  const box=document.getElementById("homePlan");
   box.innerHTML=h;
   box.querySelectorAll(".prow").forEach(rw=>{
     const open=()=>{selectMother(rw.dataset.mid);};
@@ -703,6 +771,8 @@ function cardHTML(it){
 function render(r){
   const sens=r.summary.sensitive_mode;
   document.getElementById("hdr").className=sens?"sensitive":"";
+  document.getElementById("motherWho").textContent=current.name||L("thisMother");
+  document.getElementById("motherLinkBtn").hidden=!current.share;
   let h='<div class="summary">'
     +'<div class="stat"><div class="big">'+rupees(r.summary.remaining_cash_inr)+'</div><div class="lbl">'+L("remaining")+'</div></div>'
     +'<div class="stat"><div class="big">'+r.summary.outstanding_count+'</div><div class="lbl">'+L("outstanding")+'</div></div></div>';
@@ -798,13 +868,13 @@ function renderCaseload(){
   });
   el.querySelectorAll(".del").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();delMother(b.dataset.del);}));
 }
-function selectMother(id){const m=caseload.find(x=>x.id===id);if(!m)return;current=migrate(JSON.parse(JSON.stringify(m)));loadIntoForm();renderCaseload();setView("mother");}
+function selectMother(id){const m=caseload.find(x=>x.id===id);if(!m)return;current=migrate(JSON.parse(JSON.stringify(m)));loadIntoForm();renderCaseload();go("mother");}
 function delMother(id){
   const m=caseload.find(x=>x.id===id);
   if(!confirm("Remove "+((m&&m.name)||"this mother")+" from the caseload? This cannot be undone."))return;
   caseload=caseload.filter(x=>x.id!==id);persist();pushDeleted(id);scheduleSync();
   if(current.id===id){current=newMother();loadIntoForm();}
-  renderCaseload();run();}
+  renderCaseload();if(screen!=="home")go("home");}
 function saveMother(){
   formToCurrent();
   if(!current.id)current.id="m"+Date.now();
@@ -846,7 +916,7 @@ function loadDemo(){
       bools:{bpl:true,was_breadwinner:true,accidental_death:true,deceased_had_bank_account:true,
         construction_worker:true,has_aadhaar:true,has_bank_account:true}}),
   ].map(m=>{m.u=Date.now();return migrate(m);});
-  persist();renderCaseload();scheduleSync();setView("today");
+  persist();scheduleSync();setHomeTab("today");go("home");
 }
 
 // ---- voice intake (Web Speech API; hi-IN / en-IN) ----
@@ -916,7 +986,7 @@ function setupVoice(){
       if(res.fields._bpl)current.bools.bpl=true;
       loadIntoForm();persistCurrent();
       out.innerHTML='“'+esc(text)+'”<br><b>'+L("understood")+':</b> '+(res.understood.length?esc(res.understood.join(" · ")):"—");
-      if(view!=="mother")setView("mother");else run();
+      go("form");
     };
     rec.onerror=()=>{out.textContent=L("noVoice");};
     rec.start();
@@ -931,14 +1001,19 @@ document.getElementById("life_event").addEventListener("change",e=>{
   current=newMother(ev);
   current.name=keep.name;current.profile.state=keep.state||current.profile.state;
   loadIntoForm();
-  if(view!=="mother")setView("mother");else run();
 });
-document.getElementById("form").addEventListener("input",()=>{formToCurrent();persistCurrent();if(view!=="mother")setView("mother");else run();});
-document.getElementById("saveBtn").addEventListener("click",()=>{saveMother();refresh();});
-document.getElementById("newBtn").addEventListener("click",()=>{current=newMother();loadIntoForm();renderCaseload();setView("mother");});
+document.getElementById("form").addEventListener("input",()=>{formToCurrent();persistCurrent();});
+document.getElementById("saveBtn").addEventListener("click",()=>{saveMother();go("mother");});
+document.getElementById("newBtn").addEventListener("click",()=>{current=newMother();loadIntoForm();renderCaseload();go("form");});
 document.getElementById("langBtn").addEventListener("click",()=>{lang=lang==="en"?"hi":"en";localStorage.setItem("sahej_lang",lang);applyLang();refresh();});
-document.getElementById("tabToday").addEventListener("click",()=>setView("today"));
-document.getElementById("tabMother").addEventListener("click",()=>setView("mother"));
+// screen navigation
+document.getElementById("homeToday").addEventListener("click",()=>setHomeTab("today"));
+document.getElementById("homeAll").addEventListener("click",()=>setHomeTab("all"));
+document.getElementById("navHome").addEventListener("click",()=>go("home"));
+document.getElementById("navAdd").addEventListener("click",()=>{current=newMother();loadIntoForm();renderCaseload();go("form");});
+document.getElementById("backFromMother").addEventListener("click",()=>go("home"));
+document.getElementById("backFromForm").addEventListener("click",()=>go("home"));
+document.getElementById("editBtn").addEventListener("click",()=>{loadIntoForm();go("form");});
 
 // data tools
 function download(name,text,type){
@@ -958,7 +1033,7 @@ document.getElementById("restoreFile").addEventListener("change",e=>{
       if(!Array.isArray(data))throw new Error("not a caseload file");
       if(!confirm("Replace the current caseload ("+caseload.length+" mothers) with "+data.length+" from this backup?"))return;
       caseload=data.map(m=>{m.u=Date.now();return migrate(m);});persist();scheduleSync();
-      current=newMother();loadIntoForm();renderCaseload();setView(caseload.length?"today":"mother");
+      current=newMother();loadIntoForm();setHomeTab(caseload.length?"today":"all");go("home");
     }catch(err){alert("Could not read backup: "+err.message);}
     finally{e.target.value="";}
   };
