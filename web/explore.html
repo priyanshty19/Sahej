@@ -28,6 +28,7 @@
   .hbtns a,.hbtns button{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.35);
     padding:7px 12px;border-radius:8px;font-size:12.5px;cursor:pointer;text-decoration:none;display:inline-block}
   .hbtns a:hover,.hbtns button:hover{background:rgba(255,255,255,.28)}
+  .hbtns button:disabled{opacity:.5;cursor:not-allowed}
   .wrap{max-width:1080px;margin:0 auto;padding:16px}
   /* search + filters */
   .searchbar{display:flex;gap:8px;margin-bottom:10px}
@@ -61,20 +62,23 @@
   .cta-fy{background:var(--gold)!important;border-color:var(--gold)!important;font-weight:700}
   .fybanner{background:linear-gradient(120deg,var(--brand),var(--brand-d,#0b5d52));color:#fff;border-radius:14px;
     padding:16px 18px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .fybanner[hidden]{display:none}
   .fybanner .n{font-size:22px;font-weight:800}
   .fybanner .sub{font-size:13px;opacity:.9}
   .fybanner .acts{display:flex;gap:8px;flex-wrap:wrap}
   .fybanner button{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.4);
     border-radius:9px;padding:8px 13px;font-size:13px;font-weight:600;cursor:pointer}
   .fybanner button:hover{background:rgba(255,255,255,.28)}
-  .modal{position:fixed;inset:0;background:rgba(20,28,25,.55);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+  .modal{position:fixed;inset:0;background:rgba(20,28,25,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+  .modal[hidden]{display:none}
   @media(min-width:640px){.modal{align-items:center}}
+  body.modal-open{overflow:hidden}
   .sheet{background:var(--panel);width:100%;max-width:520px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:20px}
   @media(min-width:640px){.sheet{border-radius:18px}}
   .sheet h2{margin:0 0 3px;font-size:20px}
   .sheet .lead{color:var(--muted);font-size:13.5px;margin:0 0 14px}
   .sheet label{font-size:12.5px;color:var(--muted);display:block;margin:12px 0 4px;font-weight:600}
-  .sheet select,.sheet input[type=number]{width:100%;padding:11px 10px;border:1px solid var(--line);border-radius:10px;font-size:15px;background:#fff}
+  .sheet select,.sheet input[type=number],.sheet input[type=text]{width:100%;padding:11px 10px;border:1px solid var(--line);border-radius:10px;font-size:15px;background:#fff}
   .segrow{display:flex;flex-wrap:wrap;gap:7px}
   .seg{border:1px solid var(--line);background:#fff;border-radius:20px;padding:8px 13px;font-size:13.5px;cursor:pointer}
   .seg.on{background:var(--brand);color:#fff;border-color:var(--brand)}
@@ -116,7 +120,7 @@
       <p id="t-tag">Every government scheme you're owed — by state, caste, age, income, occupation.</p>
     </div>
     <div class="hbtns">
-      <button id="fyBtn" class="cta-fy">✨ <span id="t-fy">Find mine</span></button>
+      <button id="fyBtn" class="cta-fy" disabled>✨ <span id="t-fy">Find mine</span></button>
       <button id="langBtn">हिन्दी</button>
       <a href="/about" id="t-asha">ASHA tool</a>
     </div>
@@ -132,7 +136,8 @@
     <div><label id="l-gender" for="f_gender">Gender</label><select id="f_gender"><option value="">Any</option></select></div>
     <div><label id="l-age" for="f_age">Age</label><input id="f_age" type="number" min="0" max="110" placeholder="—"></div>
     <div><label id="l-cat" for="f_category">Category</label><select id="f_category"><option value="">Any</option></select></div>
-    <div><label id="l-occ" for="f_occupation">Occupation</label><select id="f_occupation"><option value="">Any</option></select></div>
+    <div><label id="l-occ" for="f_occupation">Occupation</label><select id="f_occupation"><option value="">Any</option></select>
+      <input id="f_occupation_other" type="text" placeholder="Please specify" hidden style="margin-top:6px"></div>
     <div><label id="l-btype" for="f_benefit_type">Benefit type</label><select id="f_benefit_type"><option value="">Any</option></select></div>
   </div>
   <div class="ftogl">
@@ -173,6 +178,7 @@
     <div class="segrow" id="seg_category"></div>
     <label id="q-occ" for="w_occupation">Main occupation</label>
     <select id="w_occupation"><option value="">Any</option></select>
+    <input id="w_occupation_other" type="text" placeholder="Please specify" hidden style="margin-top:8px">
     <label id="q-situation">Anything that applies</label>
     <div class="segrow" id="seg_flags"></div>
     <button class="go" id="fyGo">Show my schemes →</button>
@@ -225,7 +231,7 @@ const I18N={
 const OCC_LABELS={farmer:["Farmer","किसान"],student:["Student","विद्यार्थी"],construction_worker:["Construction worker","निर्माण श्रमिक"],
  street_vendor:["Street vendor","रेहड़ी-पटरी"],artisan:["Artisan","कारीगर"],unorganised:["Unorganised worker","असंगठित कामगार"],
  fisher:["Fisher","मछुआरा"],dairy:["Dairy","डेयरी"],domestic_worker:["Domestic worker","घरेलू कामगार"],gig_worker:["Gig worker","गिग कामगार"],
- salaried:["Salaried employee (private/govt)","वेतनभोगी कर्मचारी (निजी/सरकारी)"]};
+ salaried:["Salaried employee (private/govt)","वेतनभोगी कर्मचारी (निजी/सरकारी)"],other:["Other","अन्य"]};
 const BT_LABELS={cash:["Cash","नकद"],pension:["Pension","पेंशन"],insurance:["Insurance","बीमा"],loan:["Loan","ऋण"],
  scholarship:["Scholarship","छात्रवृत्ति"],housing:["Housing","आवास"],in_kind:["In kind","वस्तु/सेवा"],
  document:["Document","दस्तावेज़"],service:["Service","सेवा"],savings:["Savings","बचत"]};
@@ -249,6 +255,12 @@ function applyLang(){
   fillSelects();
 }
 function opt(v,label){return '<option value="'+esc(v)+'">'+esc(label)+'</option>';}
+function toggleOccOther(selectId,inputId){
+  const sel=document.getElementById(selectId), inp=document.getElementById(inputId);
+  const isOther=sel.value==="other";
+  inp.hidden=!isOther;
+  if(isOther)inp.focus();else inp.value="";
+}
 function fillSelects(){
   const st=document.getElementById("f_state"), cur=st.value;
   st.innerHTML=opt("",L("allIndia"))+STATES.map(s=>opt(s.code,s.name)).join("");st.value=cur;
@@ -258,7 +270,8 @@ function fillSelects(){
   c.innerHTML=opt("",L("anyC"))+["general","obc","sc","st"].map(x=>opt(x,L(x))).join("");c.value=cv;
   const o=document.getElementById("f_occupation"), ov=o.value;
   o.innerHTML=opt("",L("anyG"))+(FACETS?FACETS.occupations:[]).map(x=>
-    opt(x,(OCC_LABELS[x]||[x,x])[lang==="hi"?1:0])).join("");o.value=ov;
+    opt(x,(OCC_LABELS[x]||[x,x])[lang==="hi"?1:0])).join("")+opt("other",(OCC_LABELS.other)[lang==="hi"?1:0]);o.value=ov;
+  toggleOccOther("f_occupation","f_occupation_other");
   const b=document.getElementById("f_benefit_type"), bv=b.value;
   b.innerHTML=opt("",L("anyG"))+(FACETS?FACETS.benefit_types:[]).map(x=>
     opt(x,(BT_LABELS[x]||[x,x])[lang==="hi"?1:0])).join("");b.value=bv;
@@ -268,7 +281,7 @@ function filters(){
   const q=document.getElementById("q").value.trim(); if(q)f.q=q;
   const m={state:"f_state",gender:"f_gender",age:"f_age",category:"f_category",
            occupation:"f_occupation",benefit_type:"f_benefit_type"};
-  for(const k in m){const v=document.getElementById(m[k]).value;if(v)f[k]=v;}
+  for(const k in m){const v=document.getElementById(m[k]).value;if(v&&!(k==="occupation"&&v==="other"))f[k]=v;}
   if(document.getElementById("f_bpl").checked)f.bpl="true";
   if(document.getElementById("f_disability").checked)f.disability="true";
   if(document.getElementById("f_rural").checked)f.residence="rural";
@@ -379,14 +392,18 @@ window.addEventListener("popstate",()=>{
   if(m)openDetail(m[1],false); else closeDetail(false);
 });
 
-async function init(){
-  applyLang();
+const dataReady=(async()=>{
   try{
     const [f,meta]=await Promise.all([
       (await fetch("/api/facets")).json(),
       (await fetch("/api/meta")).json()]);
     FACETS=f; STATES=meta.states||[];
   }catch(e){FACETS={occupations:[],benefit_types:[]};}
+})();
+async function init(){
+  applyLang();
+  await dataReady;
+  document.getElementById("fyBtn").disabled=false;
   fillSelects();
   const foot=document.getElementById("foot");
   foot.textContent=L("foot")+(FACETS.version||"")+" · "+(FACETS.total||0)+" schemes";
@@ -400,12 +417,14 @@ function onChange(){clearTimeout(deb);deb=setTimeout(runSearch,220);}
 ["q","f_age"].forEach(id=>document.getElementById(id).addEventListener("input",onChange));
 ["f_state","f_gender","f_category","f_occupation","f_benefit_type"].forEach(id=>
   document.getElementById(id).addEventListener("change",runSearch));
+document.getElementById("f_occupation").addEventListener("change",()=>toggleOccOther("f_occupation","f_occupation_other"));
 ["f_bpl","f_disability","f_rural"].forEach(id=>
   document.getElementById(id).addEventListener("change",runSearch));
 document.getElementById("clearBtn").addEventListener("click",()=>{
   document.getElementById("q").value="";document.getElementById("f_age").value="";
   ["f_state","f_gender","f_category","f_occupation","f_benefit_type"].forEach(id=>document.getElementById(id).value="");
   ["f_bpl","f_disability","f_rural"].forEach(id=>document.getElementById(id).checked=false);
+  toggleOccOther("f_occupation","f_occupation_other");
   runSearch();
 });
 document.getElementById("backBtn").addEventListener("click",()=>closeDetail(true));
@@ -436,6 +455,8 @@ function profileToControls(p){
   document.getElementById("f_age").value=p.age||"";
   document.getElementById("f_category").value=p.category||"";
   document.getElementById("f_occupation").value=p.occupation||"";
+  document.getElementById("f_occupation_other").value=p.occupation_other||"";
+  toggleOccOther("f_occupation","f_occupation_other");
   document.getElementById("f_bpl").checked=!!p.bpl;
   document.getElementById("f_disability").checked=!!p.disability;
   document.getElementById("f_rural").checked=!!p.rural;
@@ -470,7 +491,8 @@ function renderSegs(){
   fe.innerHTML=FLAGS.map(f=>'<button type="button" class="seg'+(draft[f[0]]?' on':'')+'" data-f="'+f[0]+'">'+esc(lab(f))+'</button>').join("");
   fe.querySelectorAll(".seg").forEach(b=>b.addEventListener("click",()=>{draft[b.dataset.f]=!draft[b.dataset.f];renderSegs();}));
 }
-function openWizard(){
+async function openWizard(){
+  await dataReady;
   draft=Object.assign({who:"self",state:"",age:"",gender:"",category:"",occupation:"",bpl:false,disability:false,rural:false},profile||{});
   document.getElementById("fyTitle").textContent=L("fyTitle");
   document.getElementById("fyLead").textContent=L("fyLead");
@@ -480,18 +502,21 @@ function openWizard(){
   document.getElementById("fySkip").textContent=L("fySkip");
   document.getElementById("w_state").innerHTML=opt("",L("allIndia"))+STATES.map(s=>opt(s.code,s.name)).join("");
   document.getElementById("w_state").value=draft.state||"";
-  document.getElementById("w_occupation").innerHTML=opt("",L("anyG"))+(FACETS?FACETS.occupations:[]).map(x=>opt(x,(OCC_LABELS[x]||[x,x])[lang==="hi"?1:0])).join("");
+  document.getElementById("w_occupation").innerHTML=opt("",L("anyG"))+(FACETS?FACETS.occupations:[]).map(x=>opt(x,(OCC_LABELS[x]||[x,x])[lang==="hi"?1:0])).join("")+opt("other",(OCC_LABELS.other)[lang==="hi"?1:0]);
   document.getElementById("w_occupation").value=draft.occupation||"";
+  document.getElementById("w_occupation_other").value=draft.occupation_other||"";
+  toggleOccOther("w_occupation","w_occupation_other");
   document.getElementById("w_age").value=draft.age||"";
   renderSegs();
-  document.getElementById("fyModal").hidden=false;
+  showModal();
 }
 function commitWizard(){
   draft.state=document.getElementById("w_state").value;
   draft.age=document.getElementById("w_age").value;
   draft.occupation=document.getElementById("w_occupation").value;
+  draft.occupation_other=draft.occupation==="other"?document.getElementById("w_occupation_other").value.trim():"";
   profile=Object.assign({},draft);saveProfile(profile);
-  document.getElementById("fyModal").hidden=true;
+  hideModal();
   profileToControls(profile);
   runSearch();
   const bn=document.getElementById("fyBanner");
@@ -503,11 +528,19 @@ function fyShareFn(){
   if(navigator.share){navigator.share({text:txt}).catch(()=>{});return;}
   window.open("https://wa.me/?text="+encodeURIComponent(txt),"_blank","noopener");
 }
+function showModal(){document.getElementById("fyModal").hidden=false;document.body.classList.add("modal-open");}
+function hideModal(){document.getElementById("fyModal").hidden=true;document.body.classList.remove("modal-open");}
+function browseEverything(){
+  profile=null;saveProfile(null);document.getElementById("fyBanner").hidden=true;
+  document.getElementById("clearBtn").click();
+  hideModal();
+}
 document.getElementById("fyBtn").addEventListener("click",openWizard);
-document.getElementById("fyClose").addEventListener("click",()=>document.getElementById("fyModal").hidden=true);
-document.getElementById("fyModal").addEventListener("click",e=>{if(e.target.id==="fyModal")e.currentTarget.hidden=true;});
+document.getElementById("fyClose").addEventListener("click",hideModal);
+document.getElementById("fyModal").addEventListener("click",e=>{if(e.target.id==="fyModal")hideModal();});
 document.getElementById("fyGo").addEventListener("click",commitWizard);
-document.getElementById("fySkip").addEventListener("click",()=>document.getElementById("fyModal").hidden=true);
+document.getElementById("fySkip").addEventListener("click",browseEverything);
+document.getElementById("w_occupation").addEventListener("change",()=>toggleOccOther("w_occupation","w_occupation_other"));
 document.getElementById("fyEdit").addEventListener("click",openWizard);
 document.getElementById("fyShare").addEventListener("click",fyShareFn);
 document.getElementById("fyClear").addEventListener("click",()=>{
