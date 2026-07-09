@@ -34,6 +34,11 @@
   .btn-dark:hover{background:var(--brand-d)}
   .btn-outline{background:#fff;color:var(--brand);border-color:var(--line)}
   .btn-outline:hover{border-color:var(--brand)}
+  .logincard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px;max-width:420px;margin-top:10px}
+  .logincard input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:16px;margin-bottom:10px;background:#fff;color:var(--ink)}
+  .logincard .err{color:#a4453a;font-size:13px;min-height:18px;margin-bottom:2px}
+  .loginbtns{display:flex;gap:10px;flex-wrap:wrap}
+  .logincard .fine{font-size:12.5px;color:var(--muted);margin:12px 0 0}
 
   /* nav */
   nav{position:sticky;top:0;z-index:10;background:rgba(15,123,108,.96);backdrop-filter:blur(6px);color:#fff}
@@ -139,7 +144,7 @@
       <a href="#how">How it works</a>
       <a href="#coverage">Coverage</a>
       <a href="#partners">For partners</a>
-      <a class="cta" href="/asha">Open the tool →</a>
+      <a class="cta" href="#login">Sign in →</a>
     </div>
   </div>
 </nav>
@@ -150,11 +155,30 @@
     <h1>Every rupee a new mother is owed — claimed, on time.</h1>
     <p class="sub">Sahej's marketplace helps anyone find the schemes they qualify for. This is its companion tool for the <strong>ASHA worker</strong> — the health worker already visiting every newborn. India sets aside thousands of crores for new mothers, yet barely <strong>1 in 10</strong> receives all the cash she's owed. Sahej turns a birth into a dated checklist of every benefit and rides those visits so nothing lapses.</p>
     <div class="ctas">
-      <a class="btn btn-primary" href="/asha">See it work →</a>
+      <a class="btn btn-primary" href="#login">Sign in to open the tool →</a>
       <a class="btn btn-ghost" href="/">Browse all schemes</a>
     </div>
   </div>
 </header>
+
+<section id="login" class="alt">
+  <div class="wrap" style="max-width:560px">
+    <div class="eyebrow">For ASHA workers</div>
+    <h2>Sign in to open your tool</h2>
+    <p class="lead">Your caseload is saved securely to your account — so it survives a lost or changed phone, and every mother's plan is one tap away on your visits.</p>
+    <div class="logincard">
+      <input id="a_name" type="text" placeholder="Your name" hidden autocomplete="name">
+      <input id="a_phone" type="tel" inputmode="numeric" placeholder="10-digit mobile number" autocomplete="username">
+      <input id="a_pin" type="password" inputmode="numeric" placeholder="4–8 digit PIN" autocomplete="current-password">
+      <div class="err" id="a_err" role="alert"></div>
+      <div class="loginbtns">
+        <button class="btn btn-primary" id="a_signin" type="button">Sign in</button>
+        <button class="btn btn-outline" id="a_register" type="button">Create account</button>
+      </div>
+      <p class="fine">New here? Tap <strong>Create account</strong>, add your name and set a PIN. Already registered? Enter your number and PIN, then <strong>Sign in</strong>.</p>
+    </div>
+  </div>
+</section>
 
 <div class="stats">
   <div class="wrap">
@@ -346,10 +370,39 @@
     <div>
       <a href="/">All schemes</a> ·
       <a href="https://github.com/priyanshty19/Sahej" target="_blank" rel="noopener">GitHub</a> ·
-      <a href="/asha">Open the tool</a>
+      <a href="#login">Sign in</a>
     </div>
   </div>
 </footer>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const err=m=>{$("a_err").textContent=m||"";};
+  async function post(url,body){
+    const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error||"Something went wrong — try again");
+    return d;
+  }
+  async function auth(register){
+    err("");
+    const phone=$("a_phone").value.trim(), pin=$("a_pin").value.trim(), name=$("a_name").value.trim();
+    if(register && $("a_name").hidden){$("a_name").hidden=false;$("a_name").focus();err("Enter your name to create an account");return;}
+    try{
+      await post(register?"/api/register":"/api/login", register?{phone,pin,name}:{phone,pin});
+      location.href="/asha";
+    }catch(e){err(e.message);}
+  }
+  $("a_signin").addEventListener("click",()=>auth(false));
+  $("a_register").addEventListener("click",()=>auth(true));
+  $("a_pin").addEventListener("keydown",e=>{if(e.key==="Enter")auth(false);});
+  // Already signed in? Skip straight to the tool.
+  fetch("/api/me").then(r=>r.ok?r.json():null).then(d=>{
+    if(d&&d.worker){err("Signed in as "+d.worker.name+" — opening your tool…");setTimeout(()=>location.href="/asha",700);}
+  }).catch(()=>{});
+})();
+</script>
 
 </body>
 </html>

@@ -19,6 +19,11 @@ import json
 import os
 from datetime import date, datetime
 
+try:
+    import store  # optional DB backend; when seeded, KBs load from the database
+except Exception:  # noqa: BLE001 — engine must run even if the store can't import
+    store = None
+
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 LIFE_EVENTS = ("childbirth", "death")
 KB_PATH = os.path.join(DATA_DIR, "childbirth_schemes.json")  # back-compat alias
@@ -269,10 +274,25 @@ def _map_to_visit(deadline_day, visit_days):
     return max(earlier) if earlier else visit_days[0]
 
 
+def _db_ready():
+    try:
+        return store is not None and store.content_ready()
+    except Exception:  # noqa: BLE001 — DB optional; fall back to bundled JSON
+        return False
+
+
 def load_kb(path=None, life_event="childbirth"):
     if path is None:
         if life_event not in LIFE_EVENTS:
             raise ProfileError(f"unknown life_event '{life_event}' — expected one of: {', '.join(LIFE_EVENTS)}")
+        if _db_ready():
+            kb = store.get_reference(f"{life_event}_schemes")
+            if kb is not None:
+                kb = dict(kb)
+                if "states" not in kb:
+                    ref = store.get_reference("states") or {}
+                    kb["states"] = ref.get("states", []) if isinstance(ref, dict) else (ref or [])
+                return kb
         path = os.path.join(DATA_DIR, f"{life_event}_schemes.json")
     with open(path, "r", encoding="utf-8") as f:
         kb = json.load(f)

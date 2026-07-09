@@ -40,15 +40,39 @@ CATALOG_PATH = os.path.join(HERE, "data", "catalog.json")
 
 _ANY = ("any",)
 
+try:
+    import store  # optional DB backend; when seeded, the catalog loads from the DB
+except Exception:  # noqa: BLE001 — catalog must run even if the store can't import
+    store = None
+
 
 def _load_json(path):
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
+def _db_ready():
+    try:
+        return store is not None and store.content_ready()
+    except Exception:  # noqa: BLE001 — DB optional; fall back to bundled JSON
+        return False
+
+
 def load_catalog(path=None):
-    cat = _load_json(path or CATALOG_PATH)
-    cat["schemes"] = list(cat["schemes"]) + _derived_from_kbs()
+    """The marketplace catalog: curated schemes plus life-event cards.
+
+    Reads from the database when it has been seeded (data lives in Supabase),
+    otherwise from the bundled JSON — so CI and offline dev work unconfigured.
+    An explicit `path` always forces the JSON file (used by tools/tests).
+    """
+    if path is None and _db_ready():
+        meta = store.get_reference("catalog_meta") or {}
+        cat = {"version": meta.get("version"), "as_of": meta.get("as_of"),
+               "schemes": store.all_schemes(source="catalog")}
+    else:
+        cat = _load_json(path or CATALOG_PATH)
+        cat["schemes"] = list(cat["schemes"])
+    cat["schemes"] = cat["schemes"] + _derived_from_kbs()
     return cat
 
 
@@ -60,12 +84,17 @@ def _derived_from_kbs():
     """
     cards = []
     seen = {"pmmvy", "nfbs", "widow_pension"}  # already curated in catalog.json
+    use_db = _db_ready()
     for event, fname in (("childbirth", "childbirth_schemes.json"),
                          ("death", "death_schemes.json")):
-        try:
-            kb = _load_json(os.path.join(HERE, "data", fname))
-        except OSError:
-            continue
+        kb = None
+        if use_db:
+            kb = store.get_reference(f"{event}_schemes")
+        if kb is None:
+            try:
+                kb = _load_json(os.path.join(HERE, "data", fname))
+            except OSError:
+                continue
         for s in kb.get("schemes", []):
             if s["id"] in seen or s.get("kind") == "state_example":
                 continue

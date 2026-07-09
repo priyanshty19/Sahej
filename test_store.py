@@ -106,6 +106,26 @@ def run():
     r2 = sync_cases(ok2["id"], [])
     chk("workers see only their own cases", r2["cases"] == [])
 
+    # Content store: catalog + reference docs (the DB-backed catalog path)
+    chk("content_ready False before seeding", store.content_ready() is False)
+    n = store.replace_schemes([("s1", {"id": "s1", "name": "One"}, "catalog"),
+                               ("s2", {"id": "s2", "name": "Two"}, "catalog")])
+    chk("replace_schemes returns count", n == 2)
+    chk("content_ready True after seeding", store.content_ready() is True)
+    chk("all_schemes returns docs", sorted(s["id"] for s in store.all_schemes()) == ["s1", "s2"])
+    chk("get_scheme by id", store.get_scheme("s2")["name"] == "Two")
+    chk("get_scheme missing -> None", store.get_scheme("nope") is None)
+    store.upsert_reference("states", {"states": [{"code": "BR", "name": "Bihar"}]})
+    chk("reference roundtrip", store.get_reference("states")["states"][0]["code"] == "BR")
+    store.upsert_reference("states", {"states": []})  # upsert overwrites
+    chk("reference upsert overwrites", store.get_reference("states")["states"] == [])
+    chk("replace_schemes replaces, not appends",
+        store.replace_schemes([("only", {"id": "only"}, "catalog")]) == 1 and len(store.all_schemes()) == 1)
+
+    # Leads: consumer mobile capture
+    chk("create_lead normalizes phone", store.create_lead("+91 98765 00011", scheme_id="pm_kisan")["mobile"] == "9876500011")
+    chk("create_lead rejects bad mobile", raises(lambda: store.create_lead("12345"), "10-digit"))
+
     passed = sum(1 for _, ok_ in checks if ok_)
     for name, ok_ in checks:
         print(f"  [{'PASS' if ok_ else 'FAIL'}] {name}")
