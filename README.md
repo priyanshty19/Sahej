@@ -88,7 +88,7 @@ first installment and only about 1 in 10 received all three.
 | `web/index.html` | The ASHA tool (PWA): **Today work plan** across the caseload, application lifecycle (**applied → received, stuck-payment detection + complaint generator**), where-to-apply & grievance channels, **voice intake (Hindi/English speech → filled form)**, **life-event selector (childbirth / death in family)**, one-tap **demo caseload**, caseload **backup/restore + CSV block report**, EN⇄HI, docs checklist, alerts, share, **offline support**. |
 | `web/sw.js` + `manifest.webmanifest` + icons | Installable app; shell cached offline, last plans available without signal. |
 | `api/index.py` + `vercel.json` + `requirements.txt` | **Vercel deploy**: re-exports the handler as a serverless function, routes all paths to it, pulls the Postgres driver. |
-| `test_engine.py` + `test_catalog.py` + `test_server.py` + `test_store.py` | **219 checks**: full scenario matrix, catalog/facets, HTTP routing/validation/security/leads, accounts/sessions/sync/content. CI runs them on every push. |
+| `test_engine.py` + `test_catalog.py` + `test_server.py` + `test_store.py` | **234 checks**: full scenario matrix, catalog/facets, HTTP routing/validation/security/leads/OTP, accounts/sessions/sync/content, consumer OTP login. CI runs them on every push. |
 | `tools/` | Reproducible generators for the README charts and PWA icons. |
 
 ## Run it
@@ -96,8 +96,8 @@ first installment and only about 1 in 10 received all three.
 ```bash
 python3 test_engine.py     # 85 scenario checks
 python3 test_catalog.py    # 39 marketplace/facet checks
-python3 test_server.py     # 55 HTTP/security/lead checks
-python3 test_store.py      # 40 account/session/sync/content checks
+python3 test_server.py     # 61 HTTP/security/lead/OTP checks
+python3 test_store.py      # 49 account/session/sync/content/OTP checks
 python3 engine.py --state BR --birth-date 2026-06-01 --child-number 1 --child-sex girl \
     --area rural --mother-age 24                     # CLI report
 python3 engine.py --birth-outcome stillbirth --state BR    # sensitive case
