@@ -140,6 +140,29 @@ _SCHEMA_PG = [
         share_token TEXT UNIQUE NOT NULL,
         PRIMARY KEY (worker_id, id))""",
     "CREATE INDEX IF NOT EXISTS idx_cases_share ON cases(share_token)",
+    # --- content: the scheme catalog + life-event knowledge bases, so the data
+    #     lives in the database (Supabase) rather than being read from disk. ---
+    """CREATE TABLE IF NOT EXISTS schemes(
+        id TEXT PRIMARY KEY,
+        doc TEXT NOT NULL,
+        source TEXT NOT NULL DEFAULT 'catalog',
+        updated_at DOUBLE PRECISION NOT NULL)""",
+    """CREATE TABLE IF NOT EXISTS reference_docs(
+        name TEXT PRIMARY KEY,
+        doc TEXT NOT NULL,
+        updated_at DOUBLE PRECISION NOT NULL)""",
+    # --- leads: consumer mobile-number capture before viewing a scheme
+    #     (OTP verification comes later; for now we just record the interest). ---
+    """CREATE TABLE IF NOT EXISTS leads(
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        mobile TEXT NOT NULL,
+        name TEXT NOT NULL DEFAULT '',
+        scheme_id TEXT NOT NULL DEFAULT '',
+        locale TEXT NOT NULL DEFAULT 'en',
+        context TEXT NOT NULL DEFAULT '',
+        verified INTEGER NOT NULL DEFAULT 0,
+        created_at DOUBLE PRECISION NOT NULL)""",
+    "CREATE INDEX IF NOT EXISTS idx_leads_mobile ON leads(mobile)",
 ]
 
 _SCHEMA_SQLITE = """
@@ -170,6 +193,28 @@ _SCHEMA_SQLITE = """
         PRIMARY KEY (worker_id, id)
     );
     CREATE INDEX IF NOT EXISTS idx_cases_share ON cases(share_token);
+    CREATE TABLE IF NOT EXISTS schemes(
+        id TEXT PRIMARY KEY,
+        doc TEXT NOT NULL,
+        source TEXT NOT NULL DEFAULT 'catalog',
+        updated_at REAL NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS reference_docs(
+        name TEXT PRIMARY KEY,
+        doc TEXT NOT NULL,
+        updated_at REAL NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS leads(
+        id INTEGER PRIMARY KEY,
+        mobile TEXT NOT NULL,
+        name TEXT NOT NULL DEFAULT '',
+        scheme_id TEXT NOT NULL DEFAULT '',
+        locale TEXT NOT NULL DEFAULT 'en',
+        context TEXT NOT NULL DEFAULT '',
+        verified INTEGER NOT NULL DEFAULT 0,
+        created_at REAL NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_leads_mobile ON leads(mobile);
 """
 
 
@@ -387,3 +432,99 @@ def get_case_by_share(token):
         return {"id": row["id"], "name": row["name"], "profile": json.loads(row["profile"])}
     finally:
         con.close()
+
+
+# --- content: schemes + reference docs (the catalog lives in the database) ----
+
+def content_ready():
+    """True when the schemes table has been seeded — the signal for catalog.py /
+    engine.py to read from the database instead of the bundled JSON. Any failure
+    (no DB, unreachable, not yet migrated) returns False so the app still boots
+    from disk; this keeps CI and offline dev working with zero configuration."""
+    try:
+        con = _connect()
+    except Exception:  # noqa: BLE001 — DB optional; fall back to JSON
+        return False
+    try:
+        row = con.execute("SELECT COUNT(*) AS n FROM schemes").fetchone()
+        return bool(row and row["n"] > 0)
+    except Exception:  # noqa: BLE001
+        return False
+    finally:
+        con.close()
+
+
+def replace_schemes(schemes):
+    """Seed/refresh the catalog: (id, doc-dict, source) tuples, replacing all rows."""
+    now = time.time()
+    con = _connect()
+    try:
+        con.execute("DELETE FROM schemes")
+        for sid, doc, source in schemes:
+            con.execute(
+                "INSERT INTO schemes(id, doc, source, updated_at) VALUES(?,?,?,?)",
+                (str(sid), json.dumps(doc, ensure_ascii=False), str(source or "catalog"), now))
+        con.commit()
+        return len(schemes)
+    finally:
+        con.close()
+
+
+def all_schemes(source=None):
+    con = _connect()
+    try:
+        if source:
+            rows = con.execute("SELECT doc FROM schemes WHERE source=? ORDER BY id", (source,))
+        else:
+            rows = con.execute("SELECT doc FROM schemes ORDER BY id")
+        return [json.loads(r["doc"]) for r in rows]
+    finally:
+        con.close()
+
+
+def get_scheme(scheme_id):
+    con = _connect()
+    try:
+        row = con.execute("SELECT doc FROM schemes WHERE id=?", (str(scheme_id),)).fetchone()
+        return json.loads(row["doc"]) if row else None
+    finally:
+        con.close()
+
+
+def upsert_reference(name, doc):
+    now = time.time()
+    con = _connect()
+    try:
+        # portable upsert: delete-then-insert keeps one code path for both drivers.
+        con.execute("DELETE FROM reference_docs WHERE name=?", (str(name),))
+        con.execute("INSERT INTO reference_docs(name, doc, updated_at) VALUES(?,?,?)",
+                    (str(name), json.dumps(doc, ensure_ascii=False), now))
+        con.commit()
+    finally:
+        con.close()
+
+
+def get_reference(name):
+    con = _connect()
+    try:
+        row = con.execute("SELECT doc FROM reference_docs WHERE name=?", (str(name),)).fetchone()
+        return json.loads(row["doc"]) if row else None
+    finally:
+        con.close()
+
+
+# --- leads: consumer mobile capture (OTP-ready) -------------------------------
+
+def create_lead(mobile, name="", scheme_id="", locale="en", context=""):
+    mobile = normalize_phone(mobile)
+    con = _connect()
+    try:
+        con.execute(
+            "INSERT INTO leads(mobile, name, scheme_id, locale, context, created_at) "
+            "VALUES(?,?,?,?,?,?)",
+            (mobile, str(name or "")[:120], str(scheme_id or "")[:64],
+             str(locale or "en")[:8], str(context or "")[:120], time.time()))
+        con.commit()
+    finally:
+        con.close()
+    return {"mobile": mobile}
