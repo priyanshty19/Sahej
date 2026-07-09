@@ -16,6 +16,7 @@ from http.server import ThreadingHTTPServer
 _tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
 _tmp.close()
 os.environ["SAHEJ_DB"] = _tmp.name
+os.environ.setdefault("DATABASE_URL", "")  # stay on SQLite even if a local .env exists
 
 from serve import Handler  # noqa: E402 — must come after SAHEJ_DB is set
 

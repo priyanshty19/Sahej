@@ -25,10 +25,33 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-import catalog as catalog_mod
-import store
-from engine import resolve, meta, work_plan, ProfileError
-from store import StoreError
+
+def _load_dotenv():
+    """Zero-dependency .env loader for local runs: populate os.environ from a
+    sibling .env, never overriding what is already set (real env wins, so CI and
+    tests that set their own vars are unaffected). Must run before importing
+    store, which reads DATABASE_URL at import. No-op if the file is absent."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, _, v = line.partition("=")
+                k, v = k.strip(), v.strip().strip('"').strip("'")
+                if k and k not in os.environ:
+                    os.environ[k] = v
+    except OSError:
+        pass
+
+
+_load_dotenv()
+
+import catalog as catalog_mod  # noqa: E402 — after _load_dotenv so DATABASE_URL is live
+import store  # noqa: E402
+from engine import resolve, meta, work_plan, ProfileError  # noqa: E402
+from store import StoreError  # noqa: E402
 
 _CATALOG = None
 
