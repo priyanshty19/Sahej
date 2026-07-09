@@ -253,6 +253,15 @@ def run():
         chk("encoded traversal -> 404, no source leak", code == 404 and b"def resolve" not in body)
         code, _, _ = get(base, "/data/childbirth_schemes.json")
         chk("paths outside web/ -> 404", code == 404)
+
+        # Lead capture (consumer mobile before viewing a scheme)
+        code, _, body = post(base, "/api/lead",
+                             {"mobile": "9876500011", "scheme_id": "pm_kisan", "context": "scheme_detail"})
+        chk("lead valid mobile -> 200", code == 200 and json.loads(body).get("ok") is True)
+        code, _, body = post(base, "/api/lead", {"mobile": "12345"})
+        chk("lead invalid mobile -> 400", code == 400 and b"mobile" in body.lower())
+        code, _, _ = post(base, "/api/lead", b"not json")
+        chk("lead bad body -> 400", code == 400)
     finally:
         srv.shutdown()
         try:
