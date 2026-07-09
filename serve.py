@@ -261,6 +261,7 @@ class Handler(BaseHTTPRequestHandler):
                    "/api/register": self._post_register,
                    "/api/login": self._post_login,
                    "/api/logout": self._post_logout,
+                   "/api/lead": self._post_lead,
                    "/api/sync": self._post_sync}.get(path)
         if handler is None:
             return self._json(404, {"error": "not found"})
@@ -305,6 +306,22 @@ class Handler(BaseHTTPRequestHandler):
     def _post_logout(self):
         store.delete_session(self._session_token())
         return self._json(200, {"ok": True}, extra=[self._cookie(None, clear=True)])
+
+    def _post_lead(self):
+        """Capture a consumer's mobile number before they view a scheme.
+
+        Public (no session). OTP verification comes later; for now we record
+        the interest so it can be followed up. store.create_lead validates the
+        number and raises StoreError (-> 400) on a bad one.
+        """
+        body = self._body()
+        if not isinstance(body, dict):
+            return self._json(400, {"error": "JSON body required"})
+        lead = store.create_lead(body.get("mobile"), name=body.get("name", ""),
+                                 scheme_id=body.get("scheme_id", ""),
+                                 locale=body.get("locale", "en"),
+                                 context=body.get("context", ""))
+        return self._json(200, {"ok": True, "mobile": lead["mobile"]})
 
     def _post_sync(self):
         w = self._worker()
