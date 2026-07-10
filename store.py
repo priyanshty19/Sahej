@@ -641,6 +641,32 @@ def verify_otp(mobile, code):
         con.close()
 
 
+def register_consumer(mobile, name=""):
+    """Create-or-fetch a consumer record immediately from a mobile number alone
+    — no OTP. This is a data-collection gate, not an identity check: it exists
+    so the marketplace can log who's interested in a scheme without making a
+    visitor wait on an SMS. Returns the same shape as verify_otp()."""
+    mobile = normalize_phone(mobile)
+    name = str(name or "").strip()[:60]
+    now = time.time()
+    con = _connect()
+    try:
+        crow = con.execute("SELECT id, name FROM consumers WHERE mobile=?", (mobile,)).fetchone()
+        if crow is None:
+            con.execute("INSERT INTO consumers(mobile, name, created_at, last_login_at) VALUES(?,?,?,?)",
+                        (mobile, name, now, now))
+            crow = con.execute("SELECT id, name FROM consumers WHERE mobile=?", (mobile,)).fetchone()
+        elif name and not crow["name"]:
+            con.execute("UPDATE consumers SET name=?, last_login_at=? WHERE id=?", (name, now, crow["id"]))
+        else:
+            con.execute("UPDATE consumers SET last_login_at=? WHERE id=?", (now, crow["id"]))
+        con.commit()
+        final_name = name or crow["name"]
+        return {"id": crow["id"], "mobile": mobile, "name": final_name}
+    finally:
+        con.close()
+
+
 def set_consumer_name(consumer_id, name):
     name = str(name or "").strip()[:60]
     con = _connect()

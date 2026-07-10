@@ -144,7 +144,6 @@
         <option value="mr">मराठी</option>
       </select>
       <button id="consumerChip" hidden title="Sign out"></button>
-      <button id="loginBtn"><span id="t-login">Login</span></button>
       <a href="/about" id="t-asha">ASHA tool</a>
     </div>
   </div>
@@ -205,25 +204,13 @@
     <input id="w_occupation_other" type="text" placeholder="Please specify" hidden style="margin-top:8px">
     <label id="q-situation">Anything that applies</label>
     <div class="segrow" id="seg_flags"></div>
+    <label id="q-mobile" for="w_mobile">Mobile number</label>
+    <input id="w_mobile" type="tel" inputmode="numeric" maxlength="10" placeholder="10-digit mobile">
+    <label id="q-name" for="w_name">Your name</label>
+    <input id="w_name" type="text" maxlength="60" placeholder="Your name">
+    <div class="gate-err" id="w_err"></div>
     <button class="go" id="fyGo">Show my schemes →</button>
     <button class="skip" id="fySkip">Skip — just browse everything</button>
-  </div>
-</div>
-
-<div class="modal" id="loginModal" hidden>
-  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="loginTitle" style="max-width:420px">
-    <button class="x" id="loginClose" aria-label="Close">×</button>
-    <h2 id="loginTitle">Sign in</h2>
-    <p class="lead" id="loginLead">For ASHA workers and staff — access your saved caseload.</p>
-    <label id="lg-name-l" for="lg_name" hidden>Your name</label>
-    <input id="lg_name" type="text" placeholder="Your name" hidden>
-    <label id="lg-phone-l" for="lg_phone">Mobile number</label>
-    <input id="lg_phone" type="tel" inputmode="numeric" placeholder="10-digit mobile">
-    <label id="lg-pin-l" for="lg_pin">PIN</label>
-    <input id="lg_pin" type="password" inputmode="numeric" placeholder="4–8 digit PIN">
-    <div class="gate-err" id="lg_err"></div>
-    <button class="go" id="lg_submit">Sign in</button>
-    <button class="skip" id="lg_toggle">New here? Create an account</button>
   </div>
 </div>
 
@@ -251,8 +238,10 @@ const I18N={
   qWho:"Who is this for?",qState:"State / UT",qAge:"Age",qGender:"Gender",qCat:"Social category",qOcc:"Main occupation",qSit:"Anything that applies",
   fyGo:"Show my schemes →",fySkip:"Skip — just browse everything",fyResult:"schemes match you",fyWorth:"up to {v} in cash & benefits identified",
   fyEditB:"Edit answers",fyShareB:"Share",fyClearB:"Clear",fyShareMsg:"Government schemes I may qualify for (via Sahej):",
-  login:"Login",income:"Annual income (₹)",logout:"Log out",
-  gateTitle:"See this scheme's full details",gateLead:"Verify your mobile number to view eligibility, amount, documents and how to apply.",
+  qMobile:"Mobile number",qName:"Your name",wizMobilePh:"10-digit mobile",wizNamePh:"Your name",
+  wizBadMobile:"Enter a valid 10-digit Indian mobile number, or leave it blank",
+  income:"Annual income (₹)",
+  gateTitle:"See this scheme's full details",gateLead:"Enter your mobile number to view eligibility, amount, documents and how to apply.",
   gatePhone:"10-digit mobile",gateBtn:"View details",gateBad:"Enter a valid 10-digit Indian mobile number",
   gateSendCode:"Send code",gateCodeTitle:"Enter the code",gateCodeSent:"We sent a 6-digit code to {m}.",
   gateCodePh:"6-digit code",gateNamePh:"Your name (optional)",gateVerify:"Verify & view",
@@ -277,8 +266,10 @@ const I18N={
   qWho:"यह किसके लिए है?",qState:"राज्य / केंद्रशासित",qAge:"उम्र",qGender:"लिंग",qCat:"सामाजिक श्रेणी",qOcc:"मुख्य पेशा",qSit:"जो लागू हो",
   fyGo:"मेरी योजनाएँ दिखाएँ →",fySkip:"छोड़ें — सब देखें",fyResult:"योजनाएँ आप पर लागू",fyWorth:"{v} तक के लाभ पहचाने गए",
   fyEditB:"बदलें",fyShareB:"भेजें",fyClearB:"हटाएँ",fyShareMsg:"सरकारी योजनाएँ जिनके लिए मैं पात्र हो सकता/सकती हूँ (सहज से):",
-  login:"लॉगिन",income:"वार्षिक आय (₹)",logout:"लॉग आउट",
-  gateTitle:"इस योजना का पूरा विवरण देखें",gateLead:"पात्रता, राशि, दस्तावेज़ और आवेदन कैसे करें — देखने के लिए अपना मोबाइल नंबर सत्यापित करें।",
+  qMobile:"मोबाइल नंबर",qName:"आपका नाम",wizMobilePh:"10 अंकों का मोबाइल",wizNamePh:"आपका नाम",
+  wizBadMobile:"मान्य 10 अंकों का मोबाइल नंबर डालें, या खाली छोड़ दें",
+  income:"वार्षिक आय (₹)",
+  gateTitle:"इस योजना का पूरा विवरण देखें",gateLead:"पात्रता, राशि, दस्तावेज़ और आवेदन कैसे करें — देखने के लिए अपना मोबाइल नंबर डालें।",
   gatePhone:"10 अंकों का मोबाइल",gateBtn:"विवरण देखें",gateBad:"मान्य 10 अंकों का भारतीय मोबाइल नंबर डालें",
   gateSendCode:"कोड भेजें",gateCodeTitle:"कोड डालें",gateCodeSent:"हमने {m} पर 6 अंकों का कोड भेजा है।",
   gateCodePh:"6 अंकों का कोड",gateNamePh:"आपका नाम (वैकल्पिक)",gateVerify:"सत्यापित करें व देखें",
@@ -372,7 +363,6 @@ function applyLang(){
     ["t-clear","clear"],["t-back","back"]])
     document.getElementById(id).textContent=L(k);
   fillSelects();
-  renderAuth();
 }
 function opt(v,label){return '<option value="'+esc(v)+'">'+esc(label)+'</option>';}
 function toggleOccOther(selectId,inputId){
@@ -451,7 +441,6 @@ function renderList(r){
   showBanner(r);
 }
 async function openDetail(id,push){
-  gateStep=1;gateDevCode="";gateMobile="";  // fresh gate for each scheme
   try{
     const r=await fetch("/api/scheme/"+encodeURIComponent(id));
     if(!r.ok)return;
@@ -509,10 +498,11 @@ function renderDetail(){
     wireGate();
   }
 }
-// Consumer OTP gate: a scheme's full details unlock once the visitor verifies
-// their mobile number (server-side consumer session — asked once per device,
-// reusable across schemes and revisits). Dev mode echoes the code inline.
-let consumer=null, gateStep=1, gateMobile="", gateDevCode="";
+// Consumer gate: a scheme's full details unlock once the visitor gives a
+// mobile number (+ optional name) — no OTP, this is data collection, not
+// identity verification. One server-side session per device, reusable across
+// schemes and revisits, and pre-filled from the For You profile if given there.
+let consumer=null;
 function gateUnlocked(){return !!consumer;}
 async function checkConsumer(){
   try{const r=await fetch("/api/consumer/me");if(r.ok){consumer=(await r.json()).consumer;}}catch(e){}
@@ -529,66 +519,40 @@ async function consumerLogout(){
   consumer=null;renderConsumer();
   if(!document.getElementById("detailView").hidden)renderDetail();
 }
+async function registerConsumer(mobile,name,context){
+  try{
+    const r=await fetch("/api/consumer/register",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({mobile,name:name||"",locale:lang,context:context||"",scheme_id:(detail&&detail.id)||""})});
+    if(!r.ok)return false;
+    consumer=(await r.json()).consumer;renderConsumer();
+    profile=Object.assign({},profile||{},{mobile,name:name||(profile&&profile.name)||""});
+    saveProfile(profile);
+    return true;
+  }catch(e){return false;}
+}
 function gateHTML(){
-  if(gateStep===2){
-    return '<div class="gatebox"><h3>'+esc(L("gateCodeTitle"))+'</h3>'
-      +'<p>'+esc(L("gateCodeSent").replace("{m}",gateMobile))+'</p>'
-      +'<input id="gate_name" type="text" placeholder="'+esc(L("gateNamePh"))+'">'
-      +'<div class="gaterow"><input id="gate_code" type="tel" inputmode="numeric" maxlength="6" placeholder="'+esc(L("gateCodePh"))+'">'
-      +'<button id="gate_verify">'+esc(L("gateVerify"))+'</button></div>'
-      +'<div class="gate-err" id="gate_err"></div>'
-      +(gateDevCode?'<div class="gate-dev">'+esc(L("gateDevHint"))+' <b>'+esc(gateDevCode)+'</b></div>':'')
-      +'<br><button class="linklike" id="gate_resend" type="button">'+esc(L("gateResend"))+'</button></div>';
-  }
+  const prefillMobile=(profile&&profile.mobile)||"";
+  const prefillName=(profile&&profile.name)||"";
   return '<div class="gatebox"><h3>'+esc(L("gateTitle"))+'</h3><p>'+esc(L("gateLead"))+'</p>'
-    +'<div class="gaterow"><input id="gate_mobile" type="tel" inputmode="numeric" maxlength="10" placeholder="'+esc(L("gatePhone"))+'">'
-    +'<button id="gate_btn">'+esc(L("gateSendCode"))+'</button></div>'
+    +'<input id="gate_name" type="text" placeholder="'+esc(L("gateNamePh"))+'" value="'+esc(prefillName)+'">'
+    +'<div class="gaterow"><input id="gate_mobile" type="tel" inputmode="numeric" maxlength="10" placeholder="'+esc(L("gatePhone"))+'" value="'+esc(prefillMobile)+'">'
+    +'<button id="gate_btn">'+esc(L("gateBtn"))+'</button></div>'
     +'<div class="gate-err" id="gate_err"></div></div>';
 }
 function wireGate(){
   const err=()=>document.getElementById("gate_err");
-  if(gateStep===2){
-    const codeEl=document.getElementById("gate_code"), btn=document.getElementById("gate_verify");
-    const verify=async()=>{
-      const code=(codeEl.value||"").replace(/\D/g,"");
-      if(code.length<4){err().textContent=L("gateBadCode");return;}
-      btn.disabled=true;err().textContent="";
-      try{
-        const r=await fetch("/api/otp/verify",{method:"POST",headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({mobile:gateMobile,code:code,name:(document.getElementById("gate_name").value||"").trim()})});
-        const d=await r.json().catch(()=>({}));
-        if(!r.ok){err().textContent=d.error||L("gateBadCode");btn.disabled=false;return;}
-        consumer=d.consumer;renderConsumer();
-        gateStep=1;gateDevCode="";gateMobile="";
-        renderDetail();
-      }catch(e){err().textContent=L("gateNetwork");btn.disabled=false;}
-    };
-    btn.addEventListener("click",verify);
-    codeEl.addEventListener("keydown",e=>{if(e.key==="Enter")verify();});
-    document.getElementById("gate_resend").addEventListener("click",()=>{gateStep=1;gateDevCode="";renderDetail();});
-    codeEl.focus();
-    return;
-  }
-  const inp=document.getElementById("gate_mobile"), btn=document.getElementById("gate_btn");
-  const send=async()=>{
+  const inp=document.getElementById("gate_mobile"), nameInp=document.getElementById("gate_name"), btn=document.getElementById("gate_btn");
+  const submit=async()=>{
     const mob=(inp.value||"").replace(/\D/g,"");
     if(!/^[6-9]\d{9}$/.test(mob)){err().textContent=L("gateBad");return;}
     btn.disabled=true;err().textContent="";
-    try{
-      const r=await fetch("/api/otp/request",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({mobile:mob})});
-      const d=await r.json().catch(()=>({}));
-      if(!r.ok){err().textContent=d.error||L("gateBad");btn.disabled=false;return;}
-      // record the interest as a (still-unverified) lead for analytics
-      fetch("/api/lead",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({mobile:mob,scheme_id:(detail&&detail.id)||"",locale:lang,context:"otp_gate"})}).catch(()=>{});
-      gateMobile=mob;gateStep=2;gateDevCode=d.dev_code||"";
-      renderDetail();
-    }catch(e){err().textContent=L("gateNetwork");btn.disabled=false;}
+    const ok=await registerConsumer(mob,(nameInp.value||"").trim(),"scheme_gate");
+    if(!ok){err().textContent=L("gateNetwork");btn.disabled=false;return;}
+    renderDetail();
   };
-  btn.addEventListener("click",send);
-  inp.addEventListener("keydown",e=>{if(e.key==="Enter")send();});
-  inp.focus();
+  btn.addEventListener("click",submit);
+  inp.addEventListener("keydown",e=>{if(e.key==="Enter")submit();});
+  if(!inp.value)inp.focus();
 }
 function closeDetail(push){
   detail=null;
@@ -620,7 +584,6 @@ async function init(){
   if(m)openDetail(m[1],false);
   if(profile)profileToControls(profile);
   runSearch();
-  checkAuth();
   checkConsumer();
   // Landing: surface the "Find mine" wizard up front until it's closed/skipped.
   if(!m && !profile && localStorage.getItem("sahej_fy_seen")!=="1"){openWizard();}
@@ -709,8 +672,10 @@ async function openWizard(){
   draft=Object.assign({who:"self",state:"",age:"",gender:"",category:"",occupation:"",bpl:false,disability:false,rural:false},profile||{});
   document.getElementById("fyTitle").textContent=L("fyTitle");
   document.getElementById("fyLead").textContent=L("fyLead");
-  for(const [id,k] of [["q-who","qWho"],["q-state","qState"],["q-age","qAge"],["q-gender","qGender"],["q-cat","qCat"],["q-occ","qOcc"],["q-situation","qSit"]])
+  for(const [id,k] of [["q-who","qWho"],["q-state","qState"],["q-age","qAge"],["q-gender","qGender"],["q-cat","qCat"],["q-occ","qOcc"],["q-situation","qSit"],["q-mobile","qMobile"],["q-name","qName"]])
     document.getElementById(id).textContent=L(k);
+  document.getElementById("w_mobile").placeholder=L("wizMobilePh");
+  document.getElementById("w_name").placeholder=L("wizNamePh");
   document.getElementById("fyGo").textContent=L("fyGo");
   document.getElementById("fySkip").textContent=L("fySkip");
   document.getElementById("w_state").innerHTML=opt("",L("allIndia"))+STATES.map(s=>opt(s.code,s.name)).join("");
@@ -720,6 +685,9 @@ async function openWizard(){
   document.getElementById("w_occupation_other").value=draft.occupation_other||"";
   toggleOccOther("w_occupation","w_occupation_other");
   document.getElementById("w_age").value=draft.age||"";
+  document.getElementById("w_mobile").value=draft.mobile||"";
+  document.getElementById("w_name").value=draft.name||"";
+  document.getElementById("w_err").textContent="";
   renderSegs();
   showModal();
 }
@@ -728,10 +696,18 @@ function commitWizard(){
   draft.age=document.getElementById("w_age").value;
   draft.occupation=document.getElementById("w_occupation").value;
   draft.occupation_other=draft.occupation==="other"?document.getElementById("w_occupation_other").value.trim():"";
+  const mobileRaw=(document.getElementById("w_mobile").value||"").replace(/\D/g,"");
+  const nameRaw=(document.getElementById("w_name").value||"").trim();
+  if(mobileRaw && !/^[6-9]\d{9}$/.test(mobileRaw)){
+    document.getElementById("w_err").textContent=L("wizBadMobile");
+    return;
+  }
+  draft.mobile=mobileRaw; draft.name=nameRaw;
   profile=Object.assign({},draft);saveProfile(profile);
   hideModal();
   profileToControls(profile);
   runSearch();
+  if(mobileRaw)registerConsumer(mobileRaw,nameRaw,"wizard");
   const bn=document.getElementById("fyBanner");
   window.scrollTo({top:Math.max(0,bn.offsetTop-70),behavior:"smooth"});
 }
@@ -762,60 +738,7 @@ document.getElementById("fyClear").addEventListener("click",()=>{
   document.getElementById("clearBtn").click();
 });
 
-// ---- Header account login (ASHA workers / staff) ----------------------------
-let worker=null, lgMode="login";
-async function checkAuth(){
-  try{const r=await fetch("/api/me");if(r.ok){worker=(await r.json()).worker;}}catch(e){}
-  renderAuth();
-}
-function renderAuth(){
-  const b=document.getElementById("t-login");
-  if(!b)return;
-  b.textContent=worker?(worker.name+" · "+L("logout")):L("login");
-}
-function applyLoginLang(){
-  const reg=lgMode==="register";
-  document.getElementById("loginTitle").textContent=L(reg?"registerTitle":"loginTitle");
-  document.getElementById("loginLead").textContent=L(reg?"registerLead":"loginLead");
-  document.getElementById("lg-phone-l").textContent=L("loginPhoneL");
-  document.getElementById("lg-pin-l").textContent=L("loginPinL");
-  document.getElementById("lg-name-l").textContent=L("loginNameL");
-  document.getElementById("lg_submit").textContent=L("loginSignIn");
-  document.getElementById("lg_toggle").textContent=L(reg?"loginToSign":"loginToReg");
-  document.getElementById("lg_name").hidden=!reg;
-  document.getElementById("lg-name-l").hidden=!reg;
-}
-function openLogin(mode){
-  lgMode=mode||"login";
-  document.getElementById("lg_err").textContent="";
-  applyLoginLang();
-  document.getElementById("loginModal").hidden=false;document.body.classList.add("modal-open");
-  document.getElementById("lg_phone").focus();
-}
-function closeLogin(){document.getElementById("loginModal").hidden=true;document.body.classList.remove("modal-open");}
-async function doLoginSubmit(){
-  const err=document.getElementById("lg_err");
-  const phone=document.getElementById("lg_phone").value.trim();
-  const pin=document.getElementById("lg_pin").value.trim();
-  const name=document.getElementById("lg_name").value.trim();
-  const reg=lgMode==="register";
-  try{
-    const r=await fetch(reg?"/api/register":"/api/login",{method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(reg?{phone,pin,name}:{phone,pin})});
-    const d=await r.json().catch(()=>({}));
-    if(!r.ok){err.textContent=d.error||"Sign in failed";return;}
-    worker=d.worker;closeLogin();renderAuth();
-  }catch(e){err.textContent="Network error — try again";}
-}
-async function doLogout(){try{await fetch("/api/logout",{method:"POST"});}catch(e){}worker=null;renderAuth();}
-document.getElementById("loginBtn").addEventListener("click",()=>{worker?doLogout():openLogin("login");});
 document.getElementById("consumerChip").addEventListener("click",consumerLogout);
-document.getElementById("loginClose").addEventListener("click",closeLogin);
-document.getElementById("loginModal").addEventListener("click",e=>{if(e.target.id==="loginModal")closeLogin();});
-document.getElementById("lg_submit").addEventListener("click",doLoginSubmit);
-document.getElementById("lg_toggle").addEventListener("click",()=>openLogin(lgMode==="login"?"register":"login"));
-document.getElementById("lg_pin").addEventListener("keydown",e=>{if(e.key==="Enter")doLoginSubmit();});
 
 if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{});}
 init();

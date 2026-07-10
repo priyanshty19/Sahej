@@ -282,6 +282,17 @@ def run():
         chk("consumer/me without cookie -> 401", code == 401)
         code, _, _ = post(base, "/api/consumer/logout", {}, cookie=cookie)
         chk("consumer logout -> 200", code == 200)
+
+        # Consumer registration without OTP (mobile-only data-collection gate)
+        code, hdrs2, body = post(base, "/api/consumer/register", {"mobile": "9812309911", "name": "Priya"})
+        ck2 = hdrs2.get("Set-Cookie", "")
+        chk("consumer register -> 200 + cookie, no OTP", code == 200
+            and json.loads(body)["consumer"]["name"] == "Priya" and "sahej_c=" in ck2)
+        cookie2 = ck2.split(";")[0]
+        code, body = get_c(base, "/api/consumer/me", cookie2)
+        chk("registered consumer session works", code == 200 and b"9812309911" in body)
+        code, _, body = post(base, "/api/consumer/register", {"mobile": "12345"})
+        chk("consumer register bad mobile -> 400", code == 400)
     finally:
         srv.shutdown()
         try:

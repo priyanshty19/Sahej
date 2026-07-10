@@ -320,6 +320,7 @@ class Handler(BaseHTTPRequestHandler):
                    "/api/lead": self._post_lead,
                    "/api/otp/request": self._post_otp_request,
                    "/api/otp/verify": self._post_otp_verify,
+                   "/api/consumer/register": self._post_consumer_register,
                    "/api/consumer/logout": self._post_consumer_logout,
                    "/api/sync": self._post_sync}.get(path)
         if handler is None:
@@ -402,6 +403,25 @@ class Handler(BaseHTTPRequestHandler):
         if name:
             store.set_consumer_name(c["id"], name)
             c["name"] = name[:60]
+        token = store.create_consumer_session(c["id"])
+        return self._json(200, {"consumer": {"mobile": c["mobile"], "name": c["name"]}},
+                          extra=[self._consumer_cookie(token)])
+
+    def _post_consumer_register(self):
+        """Mobile-only data-collection gate: no OTP, just capture the number
+        (+ optional name) and open the scheme details. Also logs a lead so the
+        interest is recorded even though the number itself is unverified."""
+        body = self._body()
+        if not isinstance(body, dict):
+            return self._json(400, {"error": "JSON body required"})
+        c = store.register_consumer(body.get("mobile"), name=body.get("name", ""))
+        try:
+            store.create_lead(c["mobile"], name=body.get("name", ""),
+                              scheme_id=body.get("scheme_id", ""),
+                              locale=body.get("locale", "en"),
+                              context=body.get("context", "mobile_gate"))
+        except StoreError:
+            pass  # the consumer record is what matters; a lead-log hiccup shouldn't block
         token = store.create_consumer_session(c["id"])
         return self._json(200, {"consumer": {"mobile": c["mobile"], "name": c["name"]}},
                           extra=[self._consumer_cookie(token)])

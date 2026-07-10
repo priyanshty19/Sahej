@@ -146,6 +146,16 @@ def run():
     cons2 = store.verify_otp("9812300099", otp2["code"])
     chk("distinct number -> distinct consumer", cons2["id"] != cons["id"])
 
+    # Consumer registration without OTP (mobile-only data-collection gate)
+    rc = store.register_consumer("+91 98123 00077", name="Asha")
+    chk("register_consumer normalizes phone + keeps name", rc["mobile"] == "9812300077" and rc["name"] == "Asha")
+    rc2 = store.register_consumer("9812300077")
+    chk("register_consumer on repeat visit keeps existing name", rc2["name"] == "Asha" and rc2["id"] == rc["id"])
+    rc3 = store.register_consumer("9812300088")
+    chk("register_consumer with no name -> empty name", rc3["name"] == "")
+    rtok = store.create_consumer_session(rc["id"])
+    chk("register_consumer session roundtrips", store.get_consumer_session(rtok)["mobile"] == "9812300077")
+
     passed = sum(1 for _, ok_ in checks if ok_)
     for name, ok_ in checks:
         print(f"  [{'PASS' if ok_ else 'FAIL'}] {name}")
