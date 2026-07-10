@@ -16,6 +16,7 @@ from http.server import ThreadingHTTPServer
 _tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
 _tmp.close()
 os.environ["SAHEJ_DB"] = _tmp.name
+os.environ.setdefault("DATABASE_URL", "")  # stay on SQLite even if a local .env exists
 
 from serve import Handler  # noqa: E402 — must come after SAHEJ_DB is set
 
@@ -253,6 +254,34 @@ def run():
         chk("encoded traversal -> 404, no source leak", code == 404 and b"def resolve" not in body)
         code, _, _ = get(base, "/data/childbirth_schemes.json")
         chk("paths outside web/ -> 404", code == 404)
+
+        # Lead capture (consumer mobile before viewing a scheme)
+        code, _, body = post(base, "/api/lead",
+                             {"mobile": "9876500011", "scheme_id": "pm_kisan", "context": "scheme_detail"})
+        chk("lead valid mobile -> 200", code == 200 and json.loads(body).get("ok") is True)
+        code, _, body = post(base, "/api/lead", {"mobile": "12345"})
+        chk("lead invalid mobile -> 400", code == 400 and b"mobile" in body.lower())
+        code, _, _ = post(base, "/api/lead", b"not json")
+        chk("lead bad body -> 400", code == 400)
+
+        # Consumer OTP login (passwordless)
+        code, _, body = post(base, "/api/otp/request", {"mobile": "9812345670"})
+        d = json.loads(body)
+        chk("otp request -> 200 dev code", code == 200 and d.get("dev_mode") is True and len(d.get("dev_code", "")) == 6)
+        devcode = d["dev_code"]
+        code, _, body = post(base, "/api/otp/verify", {"mobile": "9812345670", "code": "000001"})
+        chk("otp verify wrong -> 400", code == 400)
+        code, hdrs, body = post(base, "/api/otp/verify", {"mobile": "9812345670", "code": devcode, "name": "Ravi"})
+        ck = hdrs.get("Set-Cookie", "")
+        chk("otp verify correct -> 200 + consumer cookie", code == 200
+            and json.loads(body)["consumer"]["name"] == "Ravi" and "sahej_c=" in ck)
+        cookie = ck.split(";")[0]
+        code, body = get_c(base, "/api/consumer/me", cookie)
+        chk("consumer/me with cookie -> 200", code == 200 and b"9812345670" in body)
+        code, body = get_c(base, "/api/consumer/me")
+        chk("consumer/me without cookie -> 401", code == 401)
+        code, _, _ = post(base, "/api/consumer/logout", {}, cookie=cookie)
+        chk("consumer logout -> 200", code == 200)
     finally:
         srv.shutdown()
         try:

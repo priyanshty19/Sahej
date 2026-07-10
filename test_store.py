@@ -106,6 +106,46 @@ def run():
     r2 = sync_cases(ok2["id"], [])
     chk("workers see only their own cases", r2["cases"] == [])
 
+    # Content store: catalog + reference docs (the DB-backed catalog path)
+    chk("content_ready False before seeding", store.content_ready() is False)
+    n = store.replace_schemes([("s1", {"id": "s1", "name": "One"}, "catalog"),
+                               ("s2", {"id": "s2", "name": "Two"}, "catalog")])
+    chk("replace_schemes returns count", n == 2)
+    chk("content_ready True after seeding", store.content_ready() is True)
+    chk("all_schemes returns docs", sorted(s["id"] for s in store.all_schemes()) == ["s1", "s2"])
+    chk("get_scheme by id", store.get_scheme("s2")["name"] == "Two")
+    chk("get_scheme missing -> None", store.get_scheme("nope") is None)
+    store.upsert_reference("states", {"states": [{"code": "BR", "name": "Bihar"}]})
+    chk("reference roundtrip", store.get_reference("states")["states"][0]["code"] == "BR")
+    store.upsert_reference("states", {"states": []})  # upsert overwrites
+    chk("reference upsert overwrites", store.get_reference("states")["states"] == [])
+    chk("replace_schemes replaces, not appends",
+        store.replace_schemes([("only", {"id": "only"}, "catalog")]) == 1 and len(store.all_schemes()) == 1)
+
+    # Leads: consumer mobile capture
+    chk("create_lead normalizes phone", store.create_lead("+91 98765 00011", scheme_id="pm_kisan")["mobile"] == "9876500011")
+    chk("create_lead rejects bad mobile", raises(lambda: store.create_lead("12345"), "10-digit"))
+
+    # Consumer OTP login (passwordless)
+    cm = "9812300045"
+    otp = store.request_otp(cm)
+    chk("request_otp returns 6-digit code", otp["code"].isdigit() and len(otp["code"]) == 6)
+    chk("verify_otp wrong code rejected", raises(lambda: store.verify_otp(cm, "000000" if otp["code"] != "000000" else "111111"), "wrong code"))
+    chk("request_otp rate-limited within window", raises(lambda: store.request_otp(cm), "wait"))
+    con = store.create_lead(cm, scheme_id="ayushman")  # a lead to be verified on login
+    cons = store.verify_otp(cm, otp["code"])
+    chk("verify_otp correct -> consumer", cons["mobile"] == cm and cons["id"] > 0)
+    chk("verify_otp burns the code", raises(lambda: store.verify_otp(cm, otp["code"]), "expired"))
+    tok = store.create_consumer_session(cons["id"])
+    chk("consumer session roundtrip", store.get_consumer_session(tok)["mobile"] == cm)
+    store.set_consumer_name(cons["id"], "Meena")
+    chk("consumer name persists", store.get_consumer_session(tok)["name"] == "Meena")
+    store.delete_consumer_session(tok)
+    chk("consumer logout clears session", store.get_consumer_session(tok) is None)
+    otp2 = store.request_otp("9812300099")
+    cons2 = store.verify_otp("9812300099", otp2["code"])
+    chk("distinct number -> distinct consumer", cons2["id"] != cons["id"])
+
     passed = sum(1 for _, ok_ in checks if ok_)
     for name, ok_ in checks:
         print(f"  [{'PASS' if ok_ else 'FAIL'}] {name}")

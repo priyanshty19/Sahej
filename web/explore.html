@@ -24,11 +24,26 @@
   .hrow{max-width:1080px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
   header h1{margin:0;font-size:20px}
   header p{margin:2px 0 0;font-size:12.5px;opacity:.92}
-  .hbtns{display:flex;gap:8px}
-  .hbtns a,.hbtns button{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.35);
+  .hbtns{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .hbtns a,.hbtns button,.hbtns select{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.35);
     padding:7px 12px;border-radius:8px;font-size:12.5px;cursor:pointer;text-decoration:none;display:inline-block}
-  .hbtns a:hover,.hbtns button:hover{background:rgba(255,255,255,.28)}
+  .hbtns select{padding:7px 8px}
+  .hbtns select option{color:#1d2421}
+  .hbtns a:hover,.hbtns button:hover,.hbtns select:hover{background:rgba(255,255,255,.28)}
   .hbtns button:disabled{opacity:.5;cursor:not-allowed}
+  /* gated scheme detail: blurred until a valid mobile number is entered */
+  .gate-blur{filter:blur(7px);pointer-events:none;user-select:none;max-height:60vh;overflow:hidden}
+  .gatebox{margin-bottom:14px}
+  .gatebox h3{margin:0 0 4px;font-size:17px}
+  .gatebox p{margin:0 0 10px;font-size:13px;color:var(--muted)}
+  .gaterow{display:flex;gap:8px;flex-wrap:wrap}
+  .gaterow input{flex:1;min-width:150px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;background:#fff}
+  .gaterow button{background:var(--brand);color:#fff;border:none;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer}
+  .gate-err{color:var(--danger);font-size:12.5px;margin-top:6px;min-height:16px}
+  .gatebox input[type=text]{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;margin-bottom:8px;background:#fff}
+  .gate-dev{margin-top:10px;font-size:12px;color:var(--ink);background:var(--gold-soft);border:1px dashed var(--gold);padding:6px 9px;border-radius:8px}
+  .linklike{background:none;border:none;color:var(--brand);cursor:pointer;font-size:12.5px;text-decoration:underline;margin-top:10px;padding:0}
+  #consumerChip{background:var(--brand-soft);color:var(--brand);border:1px solid var(--brand);font-weight:600}
   .wrap{max-width:1080px;margin:0 auto;padding:16px}
   /* search + filters */
   .searchbar{display:flex;gap:8px;margin-bottom:10px}
@@ -121,7 +136,15 @@
     </div>
     <div class="hbtns">
       <button id="fyBtn" class="cta-fy" disabled>✨ <span id="t-fy">Find mine</span></button>
-      <button id="langBtn">हिन्दी</button>
+      <select id="langSel" aria-label="Language">
+        <option value="en">English</option>
+        <option value="hi">हिन्दी</option>
+        <option value="bn">বাংলা</option>
+        <option value="ta">தமிழ்</option>
+        <option value="mr">मराठी</option>
+      </select>
+      <button id="consumerChip" hidden title="Sign out"></button>
+      <button id="loginBtn"><span id="t-login">Login</span></button>
       <a href="/about" id="t-asha">ASHA tool</a>
     </div>
   </div>
@@ -138,6 +161,7 @@
     <div><label id="l-cat" for="f_category">Category</label><select id="f_category"><option value="">Any</option></select></div>
     <div><label id="l-occ" for="f_occupation">Occupation</label><select id="f_occupation"><option value="">Any</option></select>
       <input id="f_occupation_other" type="text" placeholder="Please specify" hidden style="margin-top:6px"></div>
+    <div><label id="l-income" for="f_income">Annual income (₹)</label><input id="f_income" type="number" min="0" step="1000" placeholder="—"></div>
     <div><label id="l-btype" for="f_benefit_type">Benefit type</label><select id="f_benefit_type"><option value="">Any</option></select></div>
   </div>
   <div class="ftogl">
@@ -186,6 +210,23 @@
   </div>
 </div>
 
+<div class="modal" id="loginModal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="loginTitle" style="max-width:420px">
+    <button class="x" id="loginClose" aria-label="Close">×</button>
+    <h2 id="loginTitle">Sign in</h2>
+    <p class="lead" id="loginLead">For ASHA workers and staff — access your saved caseload.</p>
+    <label id="lg-name-l" for="lg_name" hidden>Your name</label>
+    <input id="lg_name" type="text" placeholder="Your name" hidden>
+    <label id="lg-phone-l" for="lg_phone">Mobile number</label>
+    <input id="lg_phone" type="tel" inputmode="numeric" placeholder="10-digit mobile">
+    <label id="lg-pin-l" for="lg_pin">PIN</label>
+    <input id="lg_pin" type="password" inputmode="numeric" placeholder="4–8 digit PIN">
+    <div class="gate-err" id="lg_err"></div>
+    <button class="go" id="lg_submit">Sign in</button>
+    <button class="skip" id="lg_toggle">New here? Create an account</button>
+  </div>
+</div>
+
 <div class="wrap" id="detailView" hidden>
   <button class="backbtn" id="backBtn">← <span id="t-back">All schemes</span></button>
   <div class="detail" id="detailBox"></div>
@@ -210,6 +251,16 @@ const I18N={
   qWho:"Who is this for?",qState:"State / UT",qAge:"Age",qGender:"Gender",qCat:"Social category",qOcc:"Main occupation",qSit:"Anything that applies",
   fyGo:"Show my schemes →",fySkip:"Skip — just browse everything",fyResult:"schemes match you",fyWorth:"up to {v} in cash & benefits identified",
   fyEditB:"Edit answers",fyShareB:"Share",fyClearB:"Clear",fyShareMsg:"Government schemes I may qualify for (via Sahej):",
+  login:"Login",income:"Annual income (₹)",logout:"Log out",
+  gateTitle:"See this scheme's full details",gateLead:"Verify your mobile number to view eligibility, amount, documents and how to apply.",
+  gatePhone:"10-digit mobile",gateBtn:"View details",gateBad:"Enter a valid 10-digit Indian mobile number",
+  gateSendCode:"Send code",gateCodeTitle:"Enter the code",gateCodeSent:"We sent a 6-digit code to {m}.",
+  gateCodePh:"6-digit code",gateNamePh:"Your name (optional)",gateVerify:"Verify & view",
+  gateResend:"← Change number / resend",gateBadCode:"Enter the 6-digit code",gateNetwork:"Network error — try again",
+  gateDevHint:"Dev mode — your code:",
+  loginTitle:"Sign in",loginLead:"For ASHA workers and staff — access your saved caseload.",
+  loginPhoneL:"Mobile number",loginPinL:"PIN",loginNameL:"Your name",loginSignIn:"Sign in",loginToReg:"New here? Create an account",
+  registerTitle:"Create account",registerLead:"Register as an ASHA worker to save and sync your caseload.",loginToSign:"Have an account? Sign in",
   foot:"Sahej shows entitlements with sources and honesty flags. Rules marked “verify” must be confirmed against current government orders. Not legal advice. Catalog v"},
  hi:{tag:"आपका हर सरकारी हक़ — राज्य, वर्ग, उम्र, आय, पेशे के हिसाब से।",
   asha:"आशा टूल",about:"सहज क्यों",lang:"English",search:"योजना खोजें… (पेंशन, छात्रवृत्ति, घर, किसान)",
@@ -226,7 +277,74 @@ const I18N={
   qWho:"यह किसके लिए है?",qState:"राज्य / केंद्रशासित",qAge:"उम्र",qGender:"लिंग",qCat:"सामाजिक श्रेणी",qOcc:"मुख्य पेशा",qSit:"जो लागू हो",
   fyGo:"मेरी योजनाएँ दिखाएँ →",fySkip:"छोड़ें — सब देखें",fyResult:"योजनाएँ आप पर लागू",fyWorth:"{v} तक के लाभ पहचाने गए",
   fyEditB:"बदलें",fyShareB:"भेजें",fyClearB:"हटाएँ",fyShareMsg:"सरकारी योजनाएँ जिनके लिए मैं पात्र हो सकता/सकती हूँ (सहज से):",
-  foot:"सहज हर हक़ स्रोतों और ईमानदारी-चिह्नों के साथ दिखाता है। “पुष्टि करें” वाले नियम सरकारी आदेशों से मिलाएँ। कानूनी सलाह नहीं। कैटलॉग v"}
+  login:"लॉगिन",income:"वार्षिक आय (₹)",logout:"लॉग आउट",
+  gateTitle:"इस योजना का पूरा विवरण देखें",gateLead:"पात्रता, राशि, दस्तावेज़ और आवेदन कैसे करें — देखने के लिए अपना मोबाइल नंबर सत्यापित करें।",
+  gatePhone:"10 अंकों का मोबाइल",gateBtn:"विवरण देखें",gateBad:"मान्य 10 अंकों का भारतीय मोबाइल नंबर डालें",
+  gateSendCode:"कोड भेजें",gateCodeTitle:"कोड डालें",gateCodeSent:"हमने {m} पर 6 अंकों का कोड भेजा है।",
+  gateCodePh:"6 अंकों का कोड",gateNamePh:"आपका नाम (वैकल्पिक)",gateVerify:"सत्यापित करें व देखें",
+  gateResend:"← नंबर बदलें / दोबारा भेजें",gateBadCode:"6 अंकों का कोड डालें",gateNetwork:"नेटवर्क त्रुटि — फिर कोशिश करें",
+  gateDevHint:"डेव मोड — आपका कोड:",
+  loginTitle:"साइन इन",loginLead:"आशा कार्यकर्ताओं और स्टाफ़ के लिए — अपनी सहेजी केसलोड देखें।",
+  loginPhoneL:"मोबाइल नंबर",loginPinL:"पिन",loginNameL:"आपका नाम",loginSignIn:"साइन इन",loginToReg:"नए हैं? खाता बनाएँ",
+  registerTitle:"खाता बनाएँ",registerLead:"अपनी केसलोड सहेजने के लिए आशा कार्यकर्ता के रूप में रजिस्टर करें।",loginToSign:"खाता है? साइन इन करें",
+  foot:"सहज हर हक़ स्रोतों और ईमानदारी-चिह्नों के साथ दिखाता है। “पुष्टि करें” वाले नियम सरकारी आदेशों से मिलाएँ। कानूनी सलाह नहीं। कैटलॉग v"},
+ bn:{tag:"আপনার প্রাপ্য প্রতিটি সরকারি সুবিধা — রাজ্য, শ্রেণি, বয়স, আয়, পেশা অনুযায়ী।",
+  asha:"আশা টুল",lang:"English",search:"প্রকল্প খুঁজুন… (পেনশন, বৃত্তি, ঘর, কৃষক)",
+  state:"রাজ্য / কেন্দ্রশাসিত",gender:"লিঙ্গ",age:"বয়স",cat:"শ্রেণি",occ:"পেশা",btype:"সুবিধার ধরন",income:"বার্ষিক আয় (₹)",
+  bpl:"বিপিএল / অগ্রাধিকার পরিবার",dis:"প্রতিবন্ধী ব্যক্তি",rural:"গ্রামীণ",clear:"ফিল্টার সরান",
+  found:"প্রকল্প মিলেছে",back:"সব প্রকল্প",
+  anyG:"যেকোনো",female:"মহিলা",male:"পুরুষ",anyC:"যেকোনো",general:"সাধারণ",obc:"ওবিসি",sc:"এসসি",st:"এসটি",
+  allIndia:"সমগ্র ভারত",none:"এই ফিল্টারে কোনো প্রকল্প নেই — একটি সরিয়ে দেখুন।",
+  fy:"আমার জন্য",fyTitle:"আপনার জন্য প্রকল্প খুঁজুন",fyLead:"কয়েকটি ছোট প্রশ্ন — কিছুই কোথাও পাঠানো হয় না, সব আপনার ফোনেই থাকে।",
+  qWho:"এটি কার জন্য?",qState:"রাজ্য / কেন্দ্রশাসিত",qAge:"বয়স",qGender:"লিঙ্গ",qCat:"সামাজিক শ্রেণি",qOcc:"প্রধান পেশা",qSit:"যা প্রযোজ্য",
+  fyGo:"আমার প্রকল্প দেখান →",fySkip:"বাদ দিন — সব দেখুন",fyResult:"প্রকল্প আপনার জন্য প্রযোজ্য",
+  login:"লগইন",logout:"লগ আউট",
+  gateTitle:"এই প্রকল্পের সম্পূর্ণ বিবরণ দেখুন",gateLead:"যোগ্যতা, পরিমাণ, নথি ও আবেদন পদ্ধতি দেখতে আপনার মোবাইল নম্বর দিন।",
+  gatePhone:"১০ সংখ্যার মোবাইল",gateBtn:"বিবরণ দেখুন",gateBad:"একটি বৈধ ১০ সংখ্যার ভারতীয় মোবাইল নম্বর দিন",
+  gateSendCode:"কোড পাঠান",gateCodeTitle:"কোড লিখুন",gateCodeSent:"আমরা {m} নম্বরে ৬ সংখ্যার কোড পাঠিয়েছি।",
+  gateCodePh:"৬ সংখ্যার কোড",gateNamePh:"আপনার নাম (ঐচ্ছিক)",gateVerify:"যাচাই করে দেখুন",
+  gateResend:"← নম্বর বদলান / আবার পাঠান",gateBadCode:"৬ সংখ্যার কোড লিখুন",gateDevHint:"ডেভ মোড — আপনার কোড:",
+  loginTitle:"সাইন ইন",loginLead:"আশা কর্মী ও কর্মচারীদের জন্য — আপনার সংরক্ষিত কেসলোড দেখুন।",
+  loginPhoneL:"মোবাইল নম্বর",loginPinL:"পিন",loginNameL:"আপনার নাম",loginSignIn:"সাইন ইন",loginToReg:"নতুন? অ্যাকাউন্ট তৈরি করুন",
+  registerTitle:"অ্যাকাউন্ট তৈরি করুন",registerLead:"আপনার কেসলোড সংরক্ষণ করতে আশা কর্মী হিসেবে নিবন্ধন করুন।",loginToSign:"অ্যাকাউন্ট আছে? সাইন ইন করুন"},
+ ta:{tag:"நீங்கள் பெறவேண்டிய ஒவ்வொரு அரசு உதவியும் — மாநிலம், சாதி, வயது, வருமானம், தொழில் வாரியாக.",
+  asha:"ஆஷா கருவி",lang:"English",search:"திட்டங்களைத் தேடுங்கள்… (ஓய்வூதியம், உதவித்தொகை, வீடு, விவசாயி)",
+  state:"மாநிலம் / யூடி",gender:"பாலினம்",age:"வயது",cat:"பிரிவு",occ:"தொழில்",btype:"பலன் வகை",income:"ஆண்டு வருமானம் (₹)",
+  bpl:"பிபிஎல் / முன்னுரிமை குடும்பம்",dis:"மாற்றுத்திறனாளி",rural:"கிராமப்புறம்",clear:"வடிகட்டிகளை நீக்கு",
+  found:"திட்டங்கள் பொருந்தின",back:"அனைத்து திட்டங்கள்",
+  anyG:"ஏதேனும்",female:"பெண்",male:"ஆண்",anyC:"ஏதேனும்",general:"பொது",obc:"ஓபிசி",sc:"எஸ்சி",st:"எஸ்டி",
+  allIndia:"முழு இந்தியா",none:"இந்த வடிகட்டிகளில் திட்டம் இல்லை — ஒன்றை நீக்கிப் பாருங்கள்.",
+  fy:"எனக்கானது",fyTitle:"உங்களுக்கான திட்டங்களைக் கண்டறியுங்கள்",fyLead:"சில சிறிய கேள்விகள் — எதுவும் எங்கும் அனுப்பப்படாது, அனைத்தும் உங்கள் ஃபோனிலேயே இருக்கும்.",
+  qWho:"இது யாருக்காக?",qState:"மாநிலம் / யூடி",qAge:"வயது",qGender:"பாலினம்",qCat:"சமூகப் பிரிவு",qOcc:"முதன்மைத் தொழில்",qSit:"பொருந்துவது",
+  fyGo:"என் திட்டங்களைக் காட்டு →",fySkip:"தவிர் — அனைத்தையும் பார்",fyResult:"திட்டங்கள் உங்களுக்குப் பொருந்தும்",
+  login:"உள்நுழை",logout:"வெளியேறு",
+  gateTitle:"இந்தத் திட்டத்தின் முழு விவரங்களைப் பார்க்க",gateLead:"தகுதி, தொகை, ஆவணங்கள் மற்றும் விண்ணப்பிக்கும் முறையைப் பார்க்க உங்கள் மொபைல் எண்ணை உள்ளிடவும்.",
+  gatePhone:"10 இலக்க மொபைல்",gateBtn:"விவரங்களைப் பார்",gateBad:"சரியான 10 இலக்க இந்திய மொபைல் எண்ணை உள்ளிடவும்",
+  gateSendCode:"குறியீட்டை அனுப்பு",gateCodeTitle:"குறியீட்டை உள்ளிடவும்",gateCodeSent:"{m} எண்ணுக்கு 6 இலக்க குறியீட்டை அனுப்பியுள்ளோம்.",
+  gateCodePh:"6 இலக்க குறியீடு",gateNamePh:"உங்கள் பெயர் (விருப்பம்)",gateVerify:"சரிபார்த்துப் பார்",
+  gateResend:"← எண்ணை மாற்று / மீண்டும் அனுப்பு",gateBadCode:"6 இலக்க குறியீட்டை உள்ளிடவும்",gateDevHint:"டெவ் பயன்முறை — உங்கள் குறியீடு:",
+  loginTitle:"உள்நுழைக",loginLead:"ஆஷா பணியாளர்கள் மற்றும் ஊழியர்களுக்கு — உங்கள் சேமித்த கேஸ்லோடைப் பார்க்கவும்.",
+  loginPhoneL:"மொபைல் எண்",loginPinL:"பின்",loginNameL:"உங்கள் பெயர்",loginSignIn:"உள்நுழைக",loginToReg:"புதியவரா? கணக்கை உருவாக்கு",
+  registerTitle:"கணக்கை உருவாக்கு",registerLead:"உங்கள் கேஸ்லோடைச் சேமிக்க ஆஷா பணியாளராகப் பதிவு செய்யுங்கள்.",loginToSign:"கணக்கு உள்ளதா? உள்நுழைக"},
+ mr:{tag:"तुम्हाला मिळणारी प्रत्येक सरकारी मदत — राज्य, वर्ग, वय, उत्पन्न, व्यवसायानुसार.",
+  asha:"आशा टूल",lang:"English",search:"योजना शोधा… (पेन्शन, शिष्यवृत्ती, घर, शेतकरी)",
+  state:"राज्य / केंद्रशासित",gender:"लिंग",age:"वय",cat:"वर्ग",occ:"व्यवसाय",btype:"लाभाचा प्रकार",income:"वार्षिक उत्पन्न (₹)",
+  bpl:"बीपीएल / प्राधान्य कुटुंब",dis:"दिव्यांग व्यक्ती",rural:"ग्रामीण",clear:"फिल्टर काढा",
+  found:"योजना जुळल्या",back:"सर्व योजना",
+  anyG:"कोणतेही",female:"महिला",male:"पुरुष",anyC:"कोणतेही",general:"सामान्य",obc:"ओबीसी",sc:"एससी",st:"एसटी",
+  allIndia:"संपूर्ण भारत",none:"या फिल्टरमध्ये कोणतीही योजना नाही — एक काढून पाहा.",
+  fy:"माझ्यासाठी",fyTitle:"तुमच्यासाठी योजना शोधा",fyLead:"काही छोटे प्रश्न — काहीही कुठेही पाठवले जात नाही, सर्व तुमच्या फोनवरच राहते.",
+  qWho:"हे कोणासाठी आहे?",qState:"राज्य / केंद्रशासित",qAge:"वय",qGender:"लिंग",qCat:"सामाजिक वर्ग",qOcc:"मुख्य व्यवसाय",qSit:"जे लागू आहे",
+  fyGo:"माझ्या योजना दाखवा →",fySkip:"वगळा — सर्व पाहा",fyResult:"योजना तुम्हाला लागू",
+  login:"लॉगिन",logout:"लॉग आउट",
+  gateTitle:"या योजनेचा संपूर्ण तपशील पाहा",gateLead:"पात्रता, रक्कम, कागदपत्रे आणि अर्ज कसा करावा हे पाहण्यासाठी तुमचा मोबाइल क्रमांक टाका.",
+  gatePhone:"10 अंकी मोबाइल",gateBtn:"तपशील पाहा",gateBad:"वैध 10 अंकी भारतीय मोबाइल क्रमांक टाका",
+  gateSendCode:"कोड पाठवा",gateCodeTitle:"कोड टाका",gateCodeSent:"आम्ही {m} वर 6 अंकी कोड पाठवला आहे.",
+  gateCodePh:"6 अंकी कोड",gateNamePh:"तुमचे नाव (पर्यायी)",gateVerify:"पडताळून पाहा",
+  gateResend:"← क्रमांक बदला / पुन्हा पाठवा",gateBadCode:"6 अंकी कोड टाका",gateDevHint:"डेव्ह मोड — तुमचा कोड:",
+  loginTitle:"साइन इन",loginLead:"आशा कर्मचारी व स्टाफसाठी — तुमची जतन केलेली केसलोड पाहा.",
+  loginPhoneL:"मोबाइल क्रमांक",loginPinL:"पिन",loginNameL:"तुमचे नाव",loginSignIn:"साइन इन",loginToReg:"नवीन आहात? खाते तयार करा",
+  registerTitle:"खाते तयार करा",registerLead:"तुमची केसलोड जतन करण्यासाठी आशा कर्मचारी म्हणून नोंदणी करा.",loginToSign:"खाते आहे? साइन इन करा"}
 };
 const OCC_LABELS={farmer:["Farmer","किसान"],student:["Student","विद्यार्थी"],construction_worker:["Construction worker","निर्माण श्रमिक"],
  street_vendor:["Street vendor","रेहड़ी-पटरी"],artisan:["Artisan","कारीगर"],unorganised:["Unorganised worker","असंगठित कामगार"],
@@ -236,23 +354,25 @@ const BT_LABELS={cash:["Cash","नकद"],pension:["Pension","पेंशन"]
  scholarship:["Scholarship","छात्रवृत्ति"],housing:["Housing","आवास"],in_kind:["In kind","वस्तु/सेवा"],
  document:["Document","दस्तावेज़"],service:["Service","सेवा"],savings:["Savings","बचत"]};
 
-let lang=localStorage.getItem("sahej_lang")==="hi"?"hi":"en";
+const LANGS=["en","hi","bn","ta","mr"];
+let lang=LANGS.includes(localStorage.getItem("sahej_lang"))?localStorage.getItem("sahej_lang"):"en";
 let FACETS=null, STATES=[], detail=null, t=null;
-const L=k=>I18N[lang][k];
+const L=k=>(I18N[lang]&&I18N[lang][k]!=null?I18N[lang][k]:I18N.en[k]);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const rupees=n=>"₹"+Number(n).toLocaleString("en-IN");
 
 function applyLang(){
+  document.getElementById("langSel").value=lang;
   document.getElementById("t-tag").textContent=L("tag");
-  document.getElementById("langBtn").textContent=L("lang");
   document.getElementById("t-asha").textContent=L("asha");
   document.getElementById("t-fy").textContent=L("fy");
   document.getElementById("q").placeholder=L("search");
   for(const [id,k] of [["l-state","state"],["l-gender","gender"],["l-age","age"],["l-cat","cat"],
-    ["l-occ","occ"],["l-btype","btype"],["l-bpl","bpl"],["l-dis","dis"],["l-rural","rural"],
+    ["l-occ","occ"],["l-income","income"],["l-btype","btype"],["l-bpl","bpl"],["l-dis","dis"],["l-rural","rural"],
     ["t-clear","clear"],["t-back","back"]])
     document.getElementById(id).textContent=L(k);
   fillSelects();
+  renderAuth();
 }
 function opt(v,label){return '<option value="'+esc(v)+'">'+esc(label)+'</option>';}
 function toggleOccOther(selectId,inputId){
@@ -280,7 +400,7 @@ function filters(){
   const f={};
   const q=document.getElementById("q").value.trim(); if(q)f.q=q;
   const m={state:"f_state",gender:"f_gender",age:"f_age",category:"f_category",
-           occupation:"f_occupation",benefit_type:"f_benefit_type"};
+           occupation:"f_occupation",income:"f_income",benefit_type:"f_benefit_type"};
   for(const k in m){const v=document.getElementById(m[k]).value;if(v&&!(k==="occupation"&&v==="other"))f[k]=v;}
   if(document.getElementById("f_bpl").checked)f.bpl="true";
   if(document.getElementById("f_disability").checked)f.disability="true";
@@ -331,6 +451,7 @@ function renderList(r){
   showBanner(r);
 }
 async function openDetail(id,push){
+  gateStep=1;gateDevCode="";gateMobile="";  // fresh gate for each scheme
   try{
     const r=await fetch("/api/scheme/"+encodeURIComponent(id));
     if(!r.ok)return;
@@ -358,7 +479,7 @@ function renderDetail(){
   const url=(s.apply||{}).url;
   const shareTxt=(lang==="hi"&&s.name_hi?s.name_hi:s.name)+" — "
     +(lang==="hi"&&s.summary_hi?s.summary_hi:s.summary)+" "+location.origin+"/scheme/"+s.id;
-  document.getElementById("detailBox").innerHTML=
+  const html=
     '<div class="badges">'+badgeRow(s)+'</div>'
     +'<h2>'+esc(lang==="hi"&&s.name_hi?s.name_hi:s.name)+'</h2>'
     +(s.name_hi?'<div class="nmhi">'+esc(lang==="hi"?s.name:s.name_hi)+'</div>':"")
@@ -380,6 +501,94 @@ function renderDetail(){
     +(s.needs_verification?'<div class="warnbox">⚠ '+L("verify")+'</div>':"")
     +((s.source_urls||[]).length?'<div class="sect srcs"><h3>'+L("srcs")+'</h3>'
       +s.source_urls.map(u=>'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(u)+'</a><br>').join("")+'</div>':"");
+  const box=document.getElementById("detailBox");
+  if(gateUnlocked()){
+    box.innerHTML=html;
+  }else{
+    box.innerHTML=gateHTML()+'<div class="gate-blur" aria-hidden="true">'+html+'</div>';
+    wireGate();
+  }
+}
+// Consumer OTP gate: a scheme's full details unlock once the visitor verifies
+// their mobile number (server-side consumer session — asked once per device,
+// reusable across schemes and revisits). Dev mode echoes the code inline.
+let consumer=null, gateStep=1, gateMobile="", gateDevCode="";
+function gateUnlocked(){return !!consumer;}
+async function checkConsumer(){
+  try{const r=await fetch("/api/consumer/me");if(r.ok){consumer=(await r.json()).consumer;}}catch(e){}
+  renderConsumer();
+}
+function renderConsumer(){
+  const chip=document.getElementById("consumerChip");
+  if(!chip)return;
+  chip.hidden=!consumer;
+  if(consumer)chip.textContent="👤 "+consumer.mobile+" ✕";
+}
+async function consumerLogout(){
+  try{await fetch("/api/consumer/logout",{method:"POST"});}catch(e){}
+  consumer=null;renderConsumer();
+  if(!document.getElementById("detailView").hidden)renderDetail();
+}
+function gateHTML(){
+  if(gateStep===2){
+    return '<div class="gatebox"><h3>'+esc(L("gateCodeTitle"))+'</h3>'
+      +'<p>'+esc(L("gateCodeSent").replace("{m}",gateMobile))+'</p>'
+      +'<input id="gate_name" type="text" placeholder="'+esc(L("gateNamePh"))+'">'
+      +'<div class="gaterow"><input id="gate_code" type="tel" inputmode="numeric" maxlength="6" placeholder="'+esc(L("gateCodePh"))+'">'
+      +'<button id="gate_verify">'+esc(L("gateVerify"))+'</button></div>'
+      +'<div class="gate-err" id="gate_err"></div>'
+      +(gateDevCode?'<div class="gate-dev">'+esc(L("gateDevHint"))+' <b>'+esc(gateDevCode)+'</b></div>':'')
+      +'<br><button class="linklike" id="gate_resend" type="button">'+esc(L("gateResend"))+'</button></div>';
+  }
+  return '<div class="gatebox"><h3>'+esc(L("gateTitle"))+'</h3><p>'+esc(L("gateLead"))+'</p>'
+    +'<div class="gaterow"><input id="gate_mobile" type="tel" inputmode="numeric" maxlength="10" placeholder="'+esc(L("gatePhone"))+'">'
+    +'<button id="gate_btn">'+esc(L("gateSendCode"))+'</button></div>'
+    +'<div class="gate-err" id="gate_err"></div></div>';
+}
+function wireGate(){
+  const err=()=>document.getElementById("gate_err");
+  if(gateStep===2){
+    const codeEl=document.getElementById("gate_code"), btn=document.getElementById("gate_verify");
+    const verify=async()=>{
+      const code=(codeEl.value||"").replace(/\D/g,"");
+      if(code.length<4){err().textContent=L("gateBadCode");return;}
+      btn.disabled=true;err().textContent="";
+      try{
+        const r=await fetch("/api/otp/verify",{method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({mobile:gateMobile,code:code,name:(document.getElementById("gate_name").value||"").trim()})});
+        const d=await r.json().catch(()=>({}));
+        if(!r.ok){err().textContent=d.error||L("gateBadCode");btn.disabled=false;return;}
+        consumer=d.consumer;renderConsumer();
+        gateStep=1;gateDevCode="";gateMobile="";
+        renderDetail();
+      }catch(e){err().textContent=L("gateNetwork");btn.disabled=false;}
+    };
+    btn.addEventListener("click",verify);
+    codeEl.addEventListener("keydown",e=>{if(e.key==="Enter")verify();});
+    document.getElementById("gate_resend").addEventListener("click",()=>{gateStep=1;gateDevCode="";renderDetail();});
+    codeEl.focus();
+    return;
+  }
+  const inp=document.getElementById("gate_mobile"), btn=document.getElementById("gate_btn");
+  const send=async()=>{
+    const mob=(inp.value||"").replace(/\D/g,"");
+    if(!/^[6-9]\d{9}$/.test(mob)){err().textContent=L("gateBad");return;}
+    btn.disabled=true;err().textContent="";
+    try{
+      const r=await fetch("/api/otp/request",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({mobile:mob})});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok){err().textContent=d.error||L("gateBad");btn.disabled=false;return;}
+      // record the interest as a (still-unverified) lead for analytics
+      fetch("/api/lead",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({mobile:mob,scheme_id:(detail&&detail.id)||"",locale:lang,context:"otp_gate"})}).catch(()=>{});
+      gateMobile=mob;gateStep=2;gateDevCode=d.dev_code||"";
+      renderDetail();
+    }catch(e){err().textContent=L("gateNetwork");btn.disabled=false;}
+  };
+  btn.addEventListener("click",send);
+  inp.addEventListener("keydown",e=>{if(e.key==="Enter")send();});
+  inp.focus();
 }
 function closeDetail(push){
   detail=null;
@@ -411,25 +620,29 @@ async function init(){
   if(m)openDetail(m[1],false);
   if(profile)profileToControls(profile);
   runSearch();
+  checkAuth();
+  checkConsumer();
+  // Landing: surface the "Find mine" wizard up front until it's closed/skipped.
+  if(!m && !profile && localStorage.getItem("sahej_fy_seen")!=="1"){openWizard();}
 }
 let deb=null;
 function onChange(){clearTimeout(deb);deb=setTimeout(runSearch,220);}
-["q","f_age"].forEach(id=>document.getElementById(id).addEventListener("input",onChange));
+["q","f_age","f_income"].forEach(id=>document.getElementById(id).addEventListener("input",onChange));
 ["f_state","f_gender","f_category","f_occupation","f_benefit_type"].forEach(id=>
   document.getElementById(id).addEventListener("change",runSearch));
 document.getElementById("f_occupation").addEventListener("change",()=>toggleOccOther("f_occupation","f_occupation_other"));
 ["f_bpl","f_disability","f_rural"].forEach(id=>
   document.getElementById(id).addEventListener("change",runSearch));
 document.getElementById("clearBtn").addEventListener("click",()=>{
-  document.getElementById("q").value="";document.getElementById("f_age").value="";
+  document.getElementById("q").value="";document.getElementById("f_age").value="";document.getElementById("f_income").value="";
   ["f_state","f_gender","f_category","f_occupation","f_benefit_type"].forEach(id=>document.getElementById(id).value="");
   ["f_bpl","f_disability","f_rural"].forEach(id=>document.getElementById(id).checked=false);
   toggleOccOther("f_occupation","f_occupation_other");
   runSearch();
 });
 document.getElementById("backBtn").addEventListener("click",()=>closeDetail(true));
-document.getElementById("langBtn").addEventListener("click",()=>{
-  lang=lang==="en"?"hi":"en";localStorage.setItem("sahej_lang",lang);
+document.getElementById("langSel").addEventListener("change",e=>{
+  lang=LANGS.includes(e.target.value)?e.target.value:"en";localStorage.setItem("sahej_lang",lang);
   applyLang();
   const foot=document.getElementById("foot");
   foot.textContent=L("foot")+(FACETS&&FACETS.version||"")+" · "+(FACETS&&FACETS.total||0)+" schemes";
@@ -529,7 +742,8 @@ function fyShareFn(){
   window.open("https://wa.me/?text="+encodeURIComponent(txt),"_blank","noopener");
 }
 function showModal(){document.getElementById("fyModal").hidden=false;document.body.classList.add("modal-open");}
-function hideModal(){document.getElementById("fyModal").hidden=true;document.body.classList.remove("modal-open");}
+function hideModal(){document.getElementById("fyModal").hidden=true;document.body.classList.remove("modal-open");
+  try{localStorage.setItem("sahej_fy_seen","1");}catch(e){}}
 function browseEverything(){
   profile=null;saveProfile(null);document.getElementById("fyBanner").hidden=true;
   document.getElementById("clearBtn").click();
@@ -547,6 +761,61 @@ document.getElementById("fyClear").addEventListener("click",()=>{
   profile=null;saveProfile(null);document.getElementById("fyBanner").hidden=true;
   document.getElementById("clearBtn").click();
 });
+
+// ---- Header account login (ASHA workers / staff) ----------------------------
+let worker=null, lgMode="login";
+async function checkAuth(){
+  try{const r=await fetch("/api/me");if(r.ok){worker=(await r.json()).worker;}}catch(e){}
+  renderAuth();
+}
+function renderAuth(){
+  const b=document.getElementById("t-login");
+  if(!b)return;
+  b.textContent=worker?(worker.name+" · "+L("logout")):L("login");
+}
+function applyLoginLang(){
+  const reg=lgMode==="register";
+  document.getElementById("loginTitle").textContent=L(reg?"registerTitle":"loginTitle");
+  document.getElementById("loginLead").textContent=L(reg?"registerLead":"loginLead");
+  document.getElementById("lg-phone-l").textContent=L("loginPhoneL");
+  document.getElementById("lg-pin-l").textContent=L("loginPinL");
+  document.getElementById("lg-name-l").textContent=L("loginNameL");
+  document.getElementById("lg_submit").textContent=L("loginSignIn");
+  document.getElementById("lg_toggle").textContent=L(reg?"loginToSign":"loginToReg");
+  document.getElementById("lg_name").hidden=!reg;
+  document.getElementById("lg-name-l").hidden=!reg;
+}
+function openLogin(mode){
+  lgMode=mode||"login";
+  document.getElementById("lg_err").textContent="";
+  applyLoginLang();
+  document.getElementById("loginModal").hidden=false;document.body.classList.add("modal-open");
+  document.getElementById("lg_phone").focus();
+}
+function closeLogin(){document.getElementById("loginModal").hidden=true;document.body.classList.remove("modal-open");}
+async function doLoginSubmit(){
+  const err=document.getElementById("lg_err");
+  const phone=document.getElementById("lg_phone").value.trim();
+  const pin=document.getElementById("lg_pin").value.trim();
+  const name=document.getElementById("lg_name").value.trim();
+  const reg=lgMode==="register";
+  try{
+    const r=await fetch(reg?"/api/register":"/api/login",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(reg?{phone,pin,name}:{phone,pin})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){err.textContent=d.error||"Sign in failed";return;}
+    worker=d.worker;closeLogin();renderAuth();
+  }catch(e){err.textContent="Network error — try again";}
+}
+async function doLogout(){try{await fetch("/api/logout",{method:"POST"});}catch(e){}worker=null;renderAuth();}
+document.getElementById("loginBtn").addEventListener("click",()=>{worker?doLogout():openLogin("login");});
+document.getElementById("consumerChip").addEventListener("click",consumerLogout);
+document.getElementById("loginClose").addEventListener("click",closeLogin);
+document.getElementById("loginModal").addEventListener("click",e=>{if(e.target.id==="loginModal")closeLogin();});
+document.getElementById("lg_submit").addEventListener("click",doLoginSubmit);
+document.getElementById("lg_toggle").addEventListener("click",()=>openLogin(lgMode==="login"?"register":"login"));
+document.getElementById("lg_pin").addEventListener("keydown",e=>{if(e.key==="Enter")doLoginSubmit();});
 
 if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{});}
 init();

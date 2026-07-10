@@ -25,12 +25,48 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-import catalog as catalog_mod
-import store
-from engine import resolve, meta, work_plan, ProfileError
-from store import StoreError
+
+def _load_dotenv():
+    """Zero-dependency .env loader for local runs: populate os.environ from a
+    sibling .env, never overriding what is already set (real env wins, so CI and
+    tests that set their own vars are unaffected). Must run before importing
+    store, which reads DATABASE_URL at import. No-op if the file is absent."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, _, v = line.partition("=")
+                k, v = k.strip(), v.strip().strip('"').strip("'")
+                if k and k not in os.environ:
+                    os.environ[k] = v
+    except OSError:
+        pass
+
+
+_load_dotenv()
+
+import catalog as catalog_mod  # noqa: E402 — after _load_dotenv so DATABASE_URL is live
+import store  # noqa: E402
+from engine import resolve, meta, work_plan, ProfileError  # noqa: E402
+from store import StoreError  # noqa: E402
 
 _CATALOG = None
+
+
+def _deliver_otp(mobile, code):
+    """Hand a one-time code to a delivery channel and report whether we ran in
+    dev mode. With no SMS provider configured (SAHEJ_SMS_PROVIDER unset) we log
+    the code and let the API echo it back so the flow is testable end to end.
+    Wire an SMS gateway (MSG91/Twilio/…) here and set SAHEJ_SMS_PROVIDER to turn
+    the dev echo off in production."""
+    if os.environ.get("SAHEJ_SMS_PROVIDER", "").strip():
+        # TODO: integrate the chosen SMS gateway; raise on delivery failure.
+        return False
+    print(f"[otp] dev code for {mobile}: {code}", flush=True)
+    return True
 
 
 def _catalog():
@@ -148,6 +184,21 @@ class Handler(BaseHTTPRequestHandler):
         return ("Set-Cookie",
                 f"sahej={token or ''}; Path=/; Max-Age={age}; HttpOnly; SameSite=Lax{secure}")
 
+    # consumer (passwordless OTP) session — a separate cookie from the worker one
+    def _consumer_token(self):
+        cookie = SimpleCookie(self.headers.get("Cookie", ""))
+        return cookie["sahej_c"].value if "sahej_c" in cookie else None
+
+    def _consumer(self):
+        return store.get_consumer_session(self._consumer_token())
+
+    @staticmethod
+    def _consumer_cookie(token, clear=False):
+        age = 0 if clear else store.CONSUMER_SESSION_DAYS * 86_400
+        secure = "; Secure" if os.environ.get("SAHEJ_SECURE") else ""
+        return ("Set-Cookie",
+                f"sahej_c={token or ''}; Path=/; Max-Age={age}; HttpOnly; SameSite=Lax{secure}")
+
     def _file(self, relpath, cache="no-store"):
         """Serve a file strictly from within web/ (no traversal)."""
         full = os.path.realpath(os.path.join(WEB, relpath))
@@ -201,6 +252,11 @@ class Handler(BaseHTTPRequestHandler):
             if not w:
                 return self._json(401, {"error": "not signed in"})
             return self._json(200, {"worker": {"name": w["name"], "phone": w["phone"]}})
+        if path == "/api/consumer/me":
+            c = self._consumer()
+            if not c:
+                return self._json(401, {"error": "not signed in"})
+            return self._json(200, {"consumer": {"mobile": c["mobile"], "name": c["name"]}})
         if path.startswith("/m/") and "/" not in path[3:]:
             return self._file("mother.html")
         if path.startswith("/api/mother/"):
@@ -261,6 +317,10 @@ class Handler(BaseHTTPRequestHandler):
                    "/api/register": self._post_register,
                    "/api/login": self._post_login,
                    "/api/logout": self._post_logout,
+                   "/api/lead": self._post_lead,
+                   "/api/otp/request": self._post_otp_request,
+                   "/api/otp/verify": self._post_otp_verify,
+                   "/api/consumer/logout": self._post_consumer_logout,
                    "/api/sync": self._post_sync}.get(path)
         if handler is None:
             return self._json(404, {"error": "not found"})
@@ -305,6 +365,50 @@ class Handler(BaseHTTPRequestHandler):
     def _post_logout(self):
         store.delete_session(self._session_token())
         return self._json(200, {"ok": True}, extra=[self._cookie(None, clear=True)])
+
+    def _post_lead(self):
+        """Capture a consumer's mobile number before they view a scheme.
+
+        Public (no session). OTP verification comes later; for now we record
+        the interest so it can be followed up. store.create_lead validates the
+        number and raises StoreError (-> 400) on a bad one.
+        """
+        body = self._body()
+        if not isinstance(body, dict):
+            return self._json(400, {"error": "JSON body required"})
+        lead = store.create_lead(body.get("mobile"), name=body.get("name", ""),
+                                 scheme_id=body.get("scheme_id", ""),
+                                 locale=body.get("locale", "en"),
+                                 context=body.get("context", ""))
+        return self._json(200, {"ok": True, "mobile": lead["mobile"]})
+
+    def _post_otp_request(self):
+        body = self._body()
+        if not isinstance(body, dict):
+            return self._json(400, {"error": "JSON body required"})
+        r = store.request_otp(body.get("mobile"))
+        dev = _deliver_otp(r["mobile"], r["code"])
+        resp = {"ok": True, "mobile": r["mobile"], "dev_mode": dev}
+        if dev:
+            resp["dev_code"] = r["code"]  # dev only — a real SMS provider disables this
+        return self._json(200, resp)
+
+    def _post_otp_verify(self):
+        body = self._body()
+        if not isinstance(body, dict):
+            return self._json(400, {"error": "JSON body required"})
+        c = store.verify_otp(body.get("mobile"), body.get("code"))
+        name = str(body.get("name") or "").strip()
+        if name:
+            store.set_consumer_name(c["id"], name)
+            c["name"] = name[:60]
+        token = store.create_consumer_session(c["id"])
+        return self._json(200, {"consumer": {"mobile": c["mobile"], "name": c["name"]}},
+                          extra=[self._consumer_cookie(token)])
+
+    def _post_consumer_logout(self):
+        store.delete_consumer_session(self._consumer_token())
+        return self._json(200, {"ok": True}, extra=[self._consumer_cookie(None, clear=True)])
 
     def _post_sync(self):
         w = self._worker()
