@@ -505,8 +505,39 @@ function renderDetail(){
 let consumer=null;
 function gateUnlocked(){return !!consumer;}
 async function checkConsumer(){
-  try{const r=await fetch("/api/consumer/me");if(r.ok){consumer=(await r.json()).consumer;}}catch(e){}
+  try{const r=await fetch("/api/consumer/me");consumer=r.ok?(await r.json()).consumer:null;}catch(e){}
   renderConsumer();
+}
+// Marketplace residents authenticate with phone + OTP via Clerk. On a completed
+// sign-in we exchange the Clerk token for the app's consumer session (which also
+// mirrors the user into Supabase), then unlock the scheme details.
+async function initClerkConsumer(){
+  let cfg={};
+  try{cfg=await (await fetch("/api/config")).json();}catch(e){}
+  if(!cfg.clerk_enabled)return;
+  const s=document.createElement("script");
+  s.setAttribute("data-clerk-publishable-key", cfg.clerk_publishable_key);
+  s.async=true; s.crossOrigin="anonymous";
+  s.src="https://"+cfg.clerk_frontend_api+"/npm/@clerk/clerk-js@5/dist/clerk.browser.js";
+  s.addEventListener("load", async ()=>{
+    try{
+      await window.Clerk.load();
+      window.__clerk=window.Clerk;
+      window.Clerk.addListener(ev=>{ if(ev.user && window.Clerk.session) consumerExchange(); });
+      if(window.Clerk.user) consumerExchange();
+    }catch(e){}
+  });
+  document.head.appendChild(s);
+}
+async function consumerExchange(){
+  try{
+    const token=await window.Clerk.session.getToken();
+    const r=await fetch("/api/clerk/me",{headers:{Authorization:"Bearer "+token}});
+    if(!r.ok)return;
+    await checkConsumer();
+    try{if(window.Clerk.closeSignIn)window.Clerk.closeSignIn();}catch(_){}
+    if(!document.getElementById("detailView").hidden)renderDetail();
+  }catch(e){}
 }
 function renderConsumer(){
   const chip=document.getElementById("consumerChip");
@@ -516,6 +547,7 @@ function renderConsumer(){
 }
 async function consumerLogout(){
   try{await fetch("/api/consumer/logout",{method:"POST"});}catch(e){}
+  try{if(window.__clerk&&window.__clerk.signOut)await window.__clerk.signOut();}catch(e){}
   consumer=null;renderConsumer();
   if(!document.getElementById("detailView").hidden)renderDetail();
 }
@@ -541,28 +573,18 @@ async function registerConsumer(mobile,name,context,extraProfile){
   }catch(e){return false;}
 }
 function gateHTML(){
-  const prefillMobile=(profile&&profile.mobile)||"";
-  const prefillName=(profile&&profile.name)||"";
   return '<div class="gatebox"><h3>'+esc(L("gateTitle"))+'</h3><p>'+esc(L("gateLead"))+'</p>'
-    +'<input id="gate_name" type="text" placeholder="'+esc(L("gateNamePh"))+'" value="'+esc(prefillName)+'">'
-    +'<div class="gaterow"><input id="gate_mobile" type="tel" inputmode="numeric" maxlength="10" placeholder="'+esc(L("gatePhone"))+'" value="'+esc(prefillMobile)+'">'
-    +'<button id="gate_btn">'+esc(L("gateBtn"))+'</button></div>'
+    +'<div class="gaterow"><button id="gate_btn">'+esc(L("gateBtn"))+' →</button></div>'
     +'<div class="gate-err" id="gate_err"></div></div>';
 }
 function wireGate(){
   const err=()=>document.getElementById("gate_err");
-  const inp=document.getElementById("gate_mobile"), nameInp=document.getElementById("gate_name"), btn=document.getElementById("gate_btn");
-  const submit=async()=>{
-    const mob=(inp.value||"").replace(/\D/g,"");
-    if(!/^[6-9]\d{9}$/.test(mob)){err().textContent=L("gateBad");return;}
-    btn.disabled=true;err().textContent="";
-    const ok=await registerConsumer(mob,(nameInp.value||"").trim(),"scheme_gate",profile);
-    if(!ok){err().textContent=L("gateNetwork");btn.disabled=false;return;}
-    renderDetail();
-  };
-  btn.addEventListener("click",submit);
-  inp.addEventListener("keydown",e=>{if(e.key==="Enter")submit();});
-  if(!inp.value)inp.focus();
+  const btn=document.getElementById("gate_btn");
+  btn.addEventListener("click",()=>{
+    if(!window.__clerk){err().textContent=L("gateNetwork");return;}
+    err().textContent="";
+    try{window.__clerk.openSignIn({});}catch(e){err().textContent=L("gateNetwork");}
+  });
 }
 function closeDetail(push){
   detail=null;
@@ -595,6 +617,7 @@ async function init(){
   if(profile)profileToControls(profile);
   runSearch();
   checkConsumer();
+  initClerkConsumer();
   // Landing: surface the "Find mine" wizard up front until it's closed/skipped.
   if(!m && !profile && localStorage.getItem("sahej_fy_seen")!=="1"){openWizard();}
 }
