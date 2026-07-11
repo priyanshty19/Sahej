@@ -309,11 +309,17 @@ def _migrate(con):
     existing table, so this covers that gap — each ALTER is independent and
     a 'column already exists' error is expected and ignored on every run
     after the first."""
-    try:
-        con.execute("ALTER TABLE consumers ADD COLUMN profile TEXT NOT NULL DEFAULT '{}'")
-        con.commit()
-    except Exception:  # noqa: BLE001 — column already present on every run after the first
-        con.rollback()
+    for stmt in (
+        "ALTER TABLE consumers ADD COLUMN profile TEXT NOT NULL DEFAULT '{}'",
+        # Clerk-provisioned ASHA workers link back to their Clerk user so the
+        # existing caseload machinery works without a phone/PIN.
+        "ALTER TABLE workers ADD COLUMN clerk_user_id TEXT",
+    ):
+        try:
+            con.execute(stmt)
+            con.commit()
+        except Exception:  # noqa: BLE001 — column already present after the first run
+            con.rollback()
 
 
 # --- hashing helpers ----------------------------------------------------------
@@ -848,7 +854,7 @@ def upsert_clerk_user(user):
             con.execute(
                 "UPDATE clerk_users SET role=?, username=?, phone=?, email=?, name=?, last_seen_at=? WHERE clerk_user_id=?",
                 (role, username, phone, email, name, now, uid))
-        norm = ""
+        norm, consumer_id = "", None
         if role == "consumer" and phone:
             try:
                 norm = normalize_phone(phone)  # handles E.164 +91…
@@ -859,13 +865,41 @@ def upsert_clerk_user(user):
                 if c is None:
                     con.execute("INSERT INTO consumers(mobile, name, created_at, last_login_at) VALUES(?,?,?,?)",
                                 (norm, name, now, now))
+                    c = con.execute("SELECT id FROM consumers WHERE mobile=?", (norm,)).fetchone()
                 else:
                     con.execute("UPDATE consumers SET last_login_at=?, name=COALESCE(NULLIF(?,''), name) WHERE id=?",
                                 (now, name, c["id"]))
+                consumer_id = c["id"]
                 con.execute("UPDATE leads SET verified=1 WHERE mobile=?", (norm,))
         con.commit()
         return {"clerk_user_id": uid, "role": role, "username": username,
-                "phone": phone, "email": email, "name": name, "mobile": norm}
+                "phone": phone, "email": email, "name": name, "mobile": norm,
+                "consumer_id": consumer_id}
+    finally:
+        con.close()
+
+
+def worker_for_clerk(clerk_user_id, name=""):
+    """Find or provision the workers row for a Clerk-authenticated ASHA user, so
+    the existing caseload/sync machinery (keyed on worker_id) works unchanged.
+    These rows never use phone/PIN login — the phone column holds a synthetic
+    unique value and the PIN hash is random and unused."""
+    now = time.time()
+    con = _connect()
+    try:
+        row = con.execute("SELECT id, name FROM workers WHERE clerk_user_id=?",
+                          (str(clerk_user_id),)).fetchone()
+        if row is not None:
+            return {"id": row["id"], "name": row["name"]}
+        con.execute(
+            "INSERT INTO workers(phone, name, pin_hash, salt, created_at, clerk_user_id) "
+            "VALUES(?,?,?,?,?,?)",
+            ("clerk:" + str(clerk_user_id), (name or "ASHA")[:60],
+             secrets.token_bytes(32), secrets.token_bytes(16), now, str(clerk_user_id)))
+        con.commit()
+        row = con.execute("SELECT id, name FROM workers WHERE clerk_user_id=?",
+                          (str(clerk_user_id),)).fetchone()
+        return {"id": row["id"], "name": row["name"]}
     finally:
         con.close()
 

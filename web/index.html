@@ -654,10 +654,11 @@ async function doAuth(register){
 async function logout(){
   try{await api("/api/logout",{});}catch(e){/* offline logout still clears locally */}
   WORKER=null;setSync("off");
-  if(navigator.onLine)showAshaGate();
+  // Also end the Clerk session (signout flag tells the sign-in page to signOut).
+  location.href="/about?signout=1#login";
 }
-// ---- login gate: require sign-in to use the tool when online ----
-function showAshaGate(){const g=document.getElementById("ashaGate");if(g){g.hidden=false;const p=document.getElementById("g_phone");if(p)p.focus();}}
+// ---- login gate: ASHA sign-in is handled by Clerk on the /about page ----
+function showAshaGate(){if(navigator.onLine)location.replace("/about#login");}
 function hideAshaGate(){const g=document.getElementById("ashaGate");if(g)g.hidden=true;}
 async function gateAuth(register){
   const err=document.getElementById("g_err");

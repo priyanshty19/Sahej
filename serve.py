@@ -320,9 +320,17 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(401, {"error": str(e)})
             except Exception:  # noqa: BLE001 — never leak internals
                 return self._json(502, {"error": "Clerk verification failed — try again"})
+            # Exchange the verified Clerk identity for the app's own session
+            # cookie, so the existing caseload / consumer-gate code works as-is.
+            extra = []
+            if u["role"] == "asha":
+                w = store.worker_for_clerk(u["clerk_user_id"], u["name"])
+                extra = [self._cookie(store.create_session(w["id"]))]
+            elif u.get("consumer_id"):
+                extra = [self._consumer_cookie(store.create_consumer_session(u["consumer_id"]))]
             return self._json(200, {"user": {"role": u["role"], "name": u["name"],
                                              "username": u["username"], "phone": u["phone"],
-                                             "mobile": u["mobile"]}})
+                                             "mobile": u["mobile"]}}, extra=extra)
         if path == "/api/db-health":
             return self._json(200, store.db_health())
         if path.startswith("/m/") and "/" not in path[3:]:

@@ -167,15 +167,9 @@
     <h2>Sign in to open your tool</h2>
     <p class="lead">Your caseload is saved securely to your account — so it survives a lost or changed phone, and every mother's plan is one tap away on your visits.</p>
     <div class="logincard">
-      <input id="a_name" type="text" placeholder="Your name" hidden autocomplete="name">
-      <input id="a_phone" type="tel" inputmode="numeric" placeholder="10-digit mobile number" autocomplete="username">
-      <input id="a_pin" type="password" inputmode="numeric" placeholder="4–8 digit PIN" autocomplete="current-password">
+      <div id="clerk-signin" style="min-height:120px"></div>
       <div class="err" id="a_err" role="alert"></div>
-      <div class="loginbtns">
-        <button class="btn btn-primary" id="a_signin" type="button">Sign in</button>
-        <button class="btn btn-outline" id="a_register" type="button">Create account</button>
-      </div>
-      <p class="fine">New here? Tap <strong>Create account</strong>, add your name and set a PIN. Already registered? Enter your number and PIN, then <strong>Sign in</strong>.</p>
+      <p class="fine" id="a_fine">Sign in with your ASHA <strong>username and password</strong>. New here? Use <strong>Sign up</strong> in the box above.</p>
     </div>
   </div>
 </section>
@@ -378,29 +372,43 @@
 <script>
 (function(){
   const $=id=>document.getElementById(id);
-  const err=m=>{$("a_err").textContent=m||"";};
-  async function post(url,body){
-    const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-    const d=await r.json().catch(()=>({}));
-    if(!r.ok) throw new Error(d.error||"Something went wrong — try again");
-    return d;
-  }
-  async function auth(register){
-    err("");
-    const phone=$("a_phone").value.trim(), pin=$("a_pin").value.trim(), name=$("a_name").value.trim();
-    if(register && $("a_name").hidden){$("a_name").hidden=false;$("a_name").focus();err("Enter your name to create an account");return;}
+  const err=m=>{const e=$("a_err"); if(e) e.textContent=m||"";};
+  const fine=m=>{const e=$("a_fine"); if(e) e.textContent=m;};
+  let done=false;
+  async function exchangeAndGo(){
+    if(done) return;
     try{
-      await post(register?"/api/register":"/api/login", register?{phone,pin,name}:{phone,pin});
-      location.href="/asha";
-    }catch(e){err(e.message);}
+      const token=await window.Clerk.session.getToken();
+      const r=await fetch("/api/clerk/me",{headers:{Authorization:"Bearer "+token}});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok){ err(d.error||"Sign-in failed — try again"); return; }
+      if(d.user && d.user.role==="asha"){ done=true; fine("Signed in — opening your tool…"); location.href="/asha"; }
+      else{ err("This is a resident account, not an ASHA worker account. Residents sign in from the marketplace."); }
+    }catch(e){ err("Could not verify sign-in — try again"); }
   }
-  $("a_signin").addEventListener("click",()=>auth(false));
-  $("a_register").addEventListener("click",()=>auth(true));
-  $("a_pin").addEventListener("keydown",e=>{if(e.key==="Enter")auth(false);});
-  // Already signed in? Skip straight to the tool.
-  fetch("/api/me").then(r=>r.ok?r.json():null).then(d=>{
-    if(d&&d.worker){err("Signed in as "+d.worker.name+" — opening your tool…");setTimeout(()=>location.href="/asha",700);}
-  }).catch(()=>{});
+  async function initClerk(){
+    let cfg={};
+    try{ cfg=await (await fetch("/api/config")).json(); }catch(e){}
+    if(!cfg.clerk_enabled){ err("Sign-in is temporarily unavailable."); return; }
+    const s=document.createElement("script");
+    s.setAttribute("data-clerk-publishable-key", cfg.clerk_publishable_key);
+    s.async=true; s.crossOrigin="anonymous";
+    s.src="https://"+cfg.clerk_frontend_api+"/npm/@clerk/clerk-js@5/dist/clerk.browser.js";
+    let suppress=/[?&]signout=1/.test(location.search);
+    s.addEventListener("load", async ()=>{
+      try{
+        await window.Clerk.load();
+        if(suppress && window.Clerk.user){ try{ await window.Clerk.signOut(); }catch(_){} }
+        else if(window.Clerk.user){ await exchangeAndGo(); return; }
+        suppress=false;  // a completed sign-in from here on should proceed to the tool
+        window.Clerk.mountSignIn($("clerk-signin"));
+        window.Clerk.addListener(ev=>{ if(!suppress && ev.user && window.Clerk.session) exchangeAndGo(); });
+      }catch(e){ err("Sign-in failed to load — refresh and retry"); }
+    });
+    s.addEventListener("error", ()=> err("Could not load sign-in (check your connection)."));
+    document.head.appendChild(s);
+  }
+  initClerk();
 })();
 </script>
 
