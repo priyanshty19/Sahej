@@ -517,6 +517,30 @@ def content_ready():
         con.close()
 
 
+def db_health():
+    """Small production diagnostic: report backend reachability without secrets."""
+    out = {"backend": "postgres" if _PG else "sqlite",
+           "database_configured": bool(DATABASE_URL) if _PG else bool(DB_PATH)}
+    con = None
+    try:
+        con = _connect()
+        out["ok"] = True
+        out["content_ready"] = content_ready()
+        for table in ("schemes", "reference_docs", "workers", "cases", "leads", "consumers"):
+            try:
+                row = con.execute(f"SELECT COUNT(*) AS n FROM {table}").fetchone()
+                out[table] = int(row["n"]) if row else 0
+            except Exception as e:  # noqa: BLE001
+                out[table] = {"error": type(e).__name__}
+    except Exception as e:  # noqa: BLE001
+        out["ok"] = False
+        out["error"] = type(e).__name__
+    finally:
+        if con is not None:
+            con.close()
+    return out
+
+
 def replace_schemes(schemes):
     """Seed/refresh the catalog: (id, doc-dict, source) tuples, replacing all rows."""
     now = time.time()
