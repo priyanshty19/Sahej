@@ -21,6 +21,7 @@ All backed by the same Python engine the CLI and tests use — one source of tru
 """
 import json
 import os
+import traceback
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
@@ -144,6 +145,10 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
+    def _log_exception(self, where):
+        print(f"[error] {where}", flush=True)
+        traceback.print_exc()
+
     # -- responses ------------------------------------------------------------
     def _headers(self, code, ctype, length, cache="no-store", extra=None):
         self.send_response(code)
@@ -246,6 +251,7 @@ class Handler(BaseHTTPRequestHandler):
             except ProfileError as e:
                 return self._json(400, {"error": str(e)})
             except Exception:  # noqa: BLE001 — never leak internals
+                self._log_exception("GET /api/resolve")
                 return self._json(500, {"error": "internal error — check server logs"})
         if path == "/api/me":
             w = self._worker()
@@ -257,6 +263,8 @@ class Handler(BaseHTTPRequestHandler):
             if not c:
                 return self._json(401, {"error": "not signed in"})
             return self._json(200, {"consumer": {"mobile": c["mobile"], "name": c["name"]}})
+        if path == "/api/db-health":
+            return self._json(200, store.db_health())
         if path.startswith("/m/") and "/" not in path[3:]:
             return self._file("mother.html")
         if path.startswith("/api/mother/"):
@@ -330,6 +338,7 @@ class Handler(BaseHTTPRequestHandler):
         except (ProfileError, StoreError) as e:
             return self._json(400, {"error": str(e)})
         except Exception:  # noqa: BLE001 — never leak internals
+            self._log_exception(f"POST {path}")
             return self._json(500, {"error": "internal error — check server logs"})
 
     def _post_plan(self):
