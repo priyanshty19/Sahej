@@ -54,6 +54,15 @@ import store  # noqa: E402
 from engine import resolve, meta, work_plan, ProfileError  # noqa: E402
 from store import StoreError  # noqa: E402
 
+try:
+    import clerk_auth  # noqa: E402 — Clerk is optional; app boots without it
+    from clerk_auth import ClerkError  # noqa: E402
+except Exception:  # noqa: BLE001
+    clerk_auth = None
+
+    class ClerkError(ValueError):
+        pass
+
 _CATALOG = None
 
 
@@ -107,9 +116,27 @@ MIME = {
     ".txt": "text/plain; charset=utf-8",
 }
 
-# Pages get a strict-but-workable CSP (inline styles/scripts are part of the
-# self-contained pages by design; no third-party origins are ever allowed).
-CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'"
+# Pages get a strict-but-workable CSP. Base is self-only; when Clerk is
+# configured we widen script/connect/img/frame to Clerk's origins (its JS SDK
+# and API), which is the minimum Clerk needs — no other third parties.
+def _build_csp():
+    base = ("default-src 'self'; script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+            "connect-src 'self'; base-uri 'self'; form-action 'self'")
+    if not (clerk_auth and clerk_auth.is_configured()):
+        return base
+    fa = clerk_auth.frontend_api()
+    clerk = f"https://{fa} https://*.clerk.accounts.dev https://clerk.com https://challenges.cloudflare.com"
+    return ("default-src 'self'; "
+            f"script-src 'self' 'unsafe-inline' {clerk}; "
+            "style-src 'self' 'unsafe-inline'; "
+            f"img-src 'self' data: https://img.clerk.com https://*.clerk.accounts.dev; "
+            f"connect-src 'self' https://{fa} https://*.clerk.accounts.dev https://clerk-telemetry.com; "
+            f"frame-src https://*.clerk.accounts.dev https://challenges.cloudflare.com; "
+            "worker-src 'self' blob:; base-uri 'self'; form-action 'self'")
+
+
+CSP = _build_csp()
 
 
 def _profile_from_query(qs):
@@ -204,6 +231,21 @@ class Handler(BaseHTTPRequestHandler):
         return ("Set-Cookie",
                 f"sahej_c={token or ''}; Path=/; Max-Age={age}; HttpOnly; SameSite=Lax{secure}")
 
+    # -- Clerk session (Bearer token from the Clerk JS SDK, or __session cookie) --
+    def _clerk_token(self):
+        auth = self.headers.get("Authorization", "")
+        if auth.startswith("Bearer "):
+            return auth[7:].strip()
+        cookie = SimpleCookie(self.headers.get("Cookie", ""))
+        return cookie["__session"].value if "__session" in cookie else None
+
+    def _clerk_sync(self):
+        """Verify the Clerk session, mirror the user into Supabase, return it.
+        Raises ClerkError if the token is missing/invalid."""
+        claims = clerk_auth.verify_session_token(self._clerk_token())
+        prof = clerk_auth.fetch_clerk_user(claims["sub"])
+        return store.upsert_clerk_user(prof)
+
     def _file(self, relpath, cache="no-store"):
         """Serve a file strictly from within web/ (no traversal)."""
         full = os.path.realpath(os.path.join(WEB, relpath))
@@ -263,6 +305,24 @@ class Handler(BaseHTTPRequestHandler):
             if not c:
                 return self._json(401, {"error": "not signed in"})
             return self._json(200, {"consumer": {"mobile": c["mobile"], "name": c["name"]}})
+        if path == "/api/config":
+            cfg = {"clerk_enabled": bool(clerk_auth and clerk_auth.is_configured())}
+            if cfg["clerk_enabled"]:
+                cfg["clerk_publishable_key"] = clerk_auth.PUBLISHABLE_KEY
+                cfg["clerk_frontend_api"] = clerk_auth.frontend_api()
+            return self._json(200, cfg)
+        if path == "/api/clerk/me":
+            if not (clerk_auth and clerk_auth.is_configured()):
+                return self._json(404, {"error": "Clerk not configured"})
+            try:
+                u = self._clerk_sync()
+            except ClerkError as e:
+                return self._json(401, {"error": str(e)})
+            except Exception:  # noqa: BLE001 — never leak internals
+                return self._json(502, {"error": "Clerk verification failed — try again"})
+            return self._json(200, {"user": {"role": u["role"], "name": u["name"],
+                                             "username": u["username"], "phone": u["phone"],
+                                             "mobile": u["mobile"]}})
         if path == "/api/db-health":
             return self._json(200, store.db_health())
         if path.startswith("/m/") and "/" not in path[3:]:

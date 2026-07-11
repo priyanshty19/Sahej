@@ -1,5 +1,7 @@
-# Sahej runs on the Python standard library alone for local dev and CI.
-# The one production dependency is the Postgres driver used ONLY when
-# DATABASE_URL points at Neon (see store.py). Local runs and tests never
-# import it.
+# Sahej's server is Python-stdlib; these are the only production dependencies.
+#  - psycopg2-binary: Postgres driver, used only when DATABASE_URL is set (Supabase/Neon).
+#  - PyJWT + cryptography: verify Clerk session JWTs (RS256) when Clerk auth is enabled.
+# All are import-guarded, so local dev / CI without them still boots on SQLite.
 psycopg2-binary==2.9.9
+PyJWT==2.9.0
+cryptography>=42

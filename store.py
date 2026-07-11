@@ -189,6 +189,18 @@ _SCHEMA_PG = [
         consumer_id BIGINT NOT NULL REFERENCES consumers(id) ON DELETE CASCADE,
         created_at DOUBLE PRECISION NOT NULL,
         expires_at DOUBLE PRECISION NOT NULL)""",
+    # --- Clerk mirror: every Clerk user (ASHA username/pw or consumer phone/OTP)
+    #     is synced here so Supabase stays the single source of truth. ---
+    """CREATE TABLE IF NOT EXISTS clerk_users(
+        clerk_user_id TEXT PRIMARY KEY,
+        role TEXT NOT NULL DEFAULT 'consumer',
+        username TEXT NOT NULL DEFAULT '',
+        phone TEXT NOT NULL DEFAULT '',
+        email TEXT NOT NULL DEFAULT '',
+        name TEXT NOT NULL DEFAULT '',
+        created_at DOUBLE PRECISION NOT NULL,
+        last_seen_at DOUBLE PRECISION NOT NULL DEFAULT 0)""",
+    "CREATE INDEX IF NOT EXISTS idx_clerk_users_phone ON clerk_users(phone)",
 ]
 
 _SCHEMA_SQLITE = """
@@ -263,6 +275,17 @@ _SCHEMA_SQLITE = """
         created_at REAL NOT NULL,
         expires_at REAL NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS clerk_users(
+        clerk_user_id TEXT PRIMARY KEY,
+        role TEXT NOT NULL DEFAULT 'consumer',
+        username TEXT NOT NULL DEFAULT '',
+        phone TEXT NOT NULL DEFAULT '',
+        email TEXT NOT NULL DEFAULT '',
+        name TEXT NOT NULL DEFAULT '',
+        created_at REAL NOT NULL,
+        last_seen_at REAL NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_clerk_users_phone ON clerk_users(phone);
 """
 
 
@@ -526,7 +549,7 @@ def db_health():
         con = _connect()
         out["ok"] = True
         out["content_ready"] = content_ready()
-        for table in ("schemes", "reference_docs", "workers", "cases", "leads", "consumers"):
+        for table in ("schemes", "reference_docs", "workers", "cases", "leads", "consumers", "clerk_users"):
             try:
                 row = con.execute(f"SELECT COUNT(*) AS n FROM {table}").fetchone()
                 out[table] = int(row["n"]) if row else 0
@@ -794,5 +817,63 @@ def delete_consumer_session(token):
     try:
         con.execute("DELETE FROM consumer_sessions WHERE token_hash=?", (_token_hash(token),))
         con.commit()
+    finally:
+        con.close()
+
+
+# --- Clerk mirror: keep Supabase the source of truth for Clerk-authed users ---
+
+def upsert_clerk_user(user):
+    """Mirror a Clerk user (from clerk_auth.fetch_clerk_user) into Supabase.
+    `user` = {clerk_user_id, role, username, phone, email, name}. A consumer
+    (phone) is also bridged into the consumers table and their leads marked
+    verified, so the existing consumer machinery keeps working."""
+    now = time.time()
+    uid = str(user.get("clerk_user_id") or "")
+    if not uid:
+        raise StoreError("clerk_user_id required")
+    role = str(user.get("role") or "consumer")
+    username = str(user.get("username") or "")[:60]
+    phone = str(user.get("phone") or "")
+    email = str(user.get("email") or "")[:120]
+    name = str(user.get("name") or "")[:60]
+    con = _connect()
+    try:
+        exists = con.execute("SELECT clerk_user_id FROM clerk_users WHERE clerk_user_id=?", (uid,)).fetchone()
+        if exists is None:
+            con.execute(
+                "INSERT INTO clerk_users(clerk_user_id, role, username, phone, email, name, created_at, last_seen_at) "
+                "VALUES(?,?,?,?,?,?,?,?)", (uid, role, username, phone, email, name, now, now))
+        else:
+            con.execute(
+                "UPDATE clerk_users SET role=?, username=?, phone=?, email=?, name=?, last_seen_at=? WHERE clerk_user_id=?",
+                (role, username, phone, email, name, now, uid))
+        norm = ""
+        if role == "consumer" and phone:
+            try:
+                norm = normalize_phone(phone)  # handles E.164 +91…
+            except StoreError:
+                norm = ""
+            if norm:
+                c = con.execute("SELECT id FROM consumers WHERE mobile=?", (norm,)).fetchone()
+                if c is None:
+                    con.execute("INSERT INTO consumers(mobile, name, created_at, last_login_at) VALUES(?,?,?,?)",
+                                (norm, name, now, now))
+                else:
+                    con.execute("UPDATE consumers SET last_login_at=?, name=COALESCE(NULLIF(?,''), name) WHERE id=?",
+                                (now, name, c["id"]))
+                con.execute("UPDATE leads SET verified=1 WHERE mobile=?", (norm,))
+        con.commit()
+        return {"clerk_user_id": uid, "role": role, "username": username,
+                "phone": phone, "email": email, "name": name, "mobile": norm}
+    finally:
+        con.close()
+
+
+def get_clerk_user(clerk_user_id):
+    con = _connect()
+    try:
+        row = con.execute("SELECT * FROM clerk_users WHERE clerk_user_id=?", (str(clerk_user_id),)).fetchone()
+        return dict(row) if row else None
     finally:
         con.close()
