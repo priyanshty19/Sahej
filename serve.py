@@ -414,7 +414,8 @@ class Handler(BaseHTTPRequestHandler):
         body = self._body()
         if not isinstance(body, dict):
             return self._json(400, {"error": "JSON body required"})
-        c = store.register_consumer(body.get("mobile"), name=body.get("name", ""))
+        c = store.register_consumer(body.get("mobile"), name=body.get("name", ""),
+                                    profile=body.get("profile"))
         try:
             store.create_lead(c["mobile"], name=body.get("name", ""),
                               scheme_id=body.get("scheme_id", ""),
@@ -423,7 +424,8 @@ class Handler(BaseHTTPRequestHandler):
         except StoreError:
             pass  # the consumer record is what matters; a lead-log hiccup shouldn't block
         token = store.create_consumer_session(c["id"])
-        return self._json(200, {"consumer": {"mobile": c["mobile"], "name": c["name"]}},
+        return self._json(200, {"consumer": {"mobile": c["mobile"], "name": c["name"],
+                                             "profile": c["profile"]}},
                           extra=[self._consumer_cookie(token)])
 
     def _post_consumer_logout(self):

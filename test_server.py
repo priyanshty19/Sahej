@@ -293,6 +293,17 @@ def run():
         chk("registered consumer session works", code == 200 and b"9812309911" in body)
         code, _, body = post(base, "/api/consumer/register", {"mobile": "12345"})
         chk("consumer register bad mobile -> 400", code == 400)
+
+        # For You wizard facets ride along with registration and land in the DB
+        code, _, body = post(base, "/api/consumer/register", {
+            "mobile": "9812309922", "name": "Kavita",
+            "profile": {"state": "MP", "age": "30", "gender": "female", "category": "sc",
+                       "occupation": "farmer", "bpl": True, "rural": True}})
+        d = json.loads(body)
+        chk("consumer register persists wizard profile facets", code == 200
+            and d["consumer"]["profile"]["state"] == "MP"
+            and d["consumer"]["profile"]["occupation"] == "farmer"
+            and d["consumer"]["profile"]["bpl"] is True)
     finally:
         srv.shutdown()
         try:

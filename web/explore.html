@@ -519,13 +519,23 @@ async function consumerLogout(){
   consumer=null;renderConsumer();
   if(!document.getElementById("detailView").hidden)renderDetail();
 }
-async function registerConsumer(mobile,name,context){
+const PROFILE_FACET_KEYS=["who","state","age","gender","category","occupation","occupation_other","bpl","disability","rural"];
+function facetsOf(obj){
+  if(!obj)return undefined;
+  const out={};
+  PROFILE_FACET_KEYS.forEach(k=>{if(obj[k]!==undefined&&obj[k]!=="")out[k]=obj[k];});
+  return Object.keys(out).length?out:undefined;
+}
+async function registerConsumer(mobile,name,context,extraProfile){
   try{
+    const body={mobile,name:name||"",locale:lang,context:context||"",scheme_id:(detail&&detail.id)||""};
+    const facets=facetsOf(extraProfile);
+    if(facets)body.profile=facets;
     const r=await fetch("/api/consumer/register",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({mobile,name:name||"",locale:lang,context:context||"",scheme_id:(detail&&detail.id)||""})});
+      body:JSON.stringify(body)});
     if(!r.ok)return false;
     consumer=(await r.json()).consumer;renderConsumer();
-    profile=Object.assign({},profile||{},{mobile,name:name||(profile&&profile.name)||""});
+    profile=Object.assign({},profile||{},facets||{},{mobile,name:name||(profile&&profile.name)||""});
     saveProfile(profile);
     return true;
   }catch(e){return false;}
@@ -546,7 +556,7 @@ function wireGate(){
     const mob=(inp.value||"").replace(/\D/g,"");
     if(!/^[6-9]\d{9}$/.test(mob)){err().textContent=L("gateBad");return;}
     btn.disabled=true;err().textContent="";
-    const ok=await registerConsumer(mob,(nameInp.value||"").trim(),"scheme_gate");
+    const ok=await registerConsumer(mob,(nameInp.value||"").trim(),"scheme_gate",profile);
     if(!ok){err().textContent=L("gateNetwork");btn.disabled=false;return;}
     renderDetail();
   };
@@ -707,7 +717,7 @@ function commitWizard(){
   hideModal();
   profileToControls(profile);
   runSearch();
-  if(mobileRaw)registerConsumer(mobileRaw,nameRaw,"wizard");
+  if(mobileRaw)registerConsumer(mobileRaw,nameRaw,"wizard",draft);
   const bn=document.getElementById("fyBanner");
   window.scrollTo({top:Math.max(0,bn.offsetTop-70),behavior:"smooth"});
 }

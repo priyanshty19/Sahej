@@ -174,6 +174,7 @@ _SCHEMA_PG = [
         id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         mobile TEXT UNIQUE NOT NULL,
         name TEXT NOT NULL DEFAULT '',
+        profile TEXT NOT NULL DEFAULT '{}',
         created_at DOUBLE PRECISION NOT NULL,
         last_login_at DOUBLE PRECISION NOT NULL DEFAULT 0)""",
     """CREATE TABLE IF NOT EXISTS otp_codes(
@@ -244,6 +245,7 @@ _SCHEMA_SQLITE = """
         id INTEGER PRIMARY KEY,
         mobile TEXT UNIQUE NOT NULL,
         name TEXT NOT NULL DEFAULT '',
+        profile TEXT NOT NULL DEFAULT '{}',
         created_at REAL NOT NULL,
         last_login_at REAL NOT NULL DEFAULT 0
     );
@@ -273,6 +275,21 @@ def _init(con):
             con._raw.executescript(_SCHEMA_SQLITE)
         con.commit()
     except Exception:  # noqa: BLE001 — concurrent cold starts may race on CREATE
+        con.rollback()
+    _migrate(con)
+
+
+def _migrate(con):
+    """Additive, idempotent column migrations for databases created before a
+    column existed (e.g. a live Supabase instance from before `profile` was
+    added to consumers). CREATE TABLE IF NOT EXISTS never adds columns to an
+    existing table, so this covers that gap — each ALTER is independent and
+    a 'column already exists' error is expected and ignored on every run
+    after the first."""
+    try:
+        con.execute("ALTER TABLE consumers ADD COLUMN profile TEXT NOT NULL DEFAULT '{}'")
+        con.commit()
+    except Exception:  # noqa: BLE001 — column already present on every run after the first
         con.rollback()
 
 
@@ -641,28 +658,69 @@ def verify_otp(mobile, code):
         con.close()
 
 
-def register_consumer(mobile, name=""):
+CONSUMER_PROFILE_FIELDS = ("who", "state", "age", "gender", "category", "occupation",
+                          "occupation_other", "bpl", "disability", "rural")
+
+
+def _clean_consumer_profile(profile):
+    """Whitelist + coerce the For You wizard's facets before they touch the DB
+    — never trust the client's JSON shape directly."""
+    if not isinstance(profile, dict):
+        return {}
+    out = {}
+    for k in CONSUMER_PROFILE_FIELDS:
+        v = profile.get(k)
+        if v in (None, ""):
+            continue
+        if k in ("bpl", "disability", "rural"):
+            out[k] = bool(v)
+        elif k == "age":
+            try:
+                out[k] = int(v)
+            except (TypeError, ValueError):
+                continue
+        else:
+            out[k] = str(v)[:60]
+    return out
+
+
+def register_consumer(mobile, name="", profile=None):
     """Create-or-fetch a consumer record immediately from a mobile number alone
     — no OTP. This is a data-collection gate, not an identity check: it exists
     so the marketplace can log who's interested in a scheme without making a
-    visitor wait on an SMS. Returns the same shape as verify_otp()."""
+    visitor wait on an SMS. Any eligibility facets captured in the For You
+    wizard (state/age/gender/category/occupation/bpl/disability/rural) are
+    merged into the consumer's stored profile so they persist server-side,
+    not just in the browser's localStorage. Returns the same shape as
+    verify_otp() plus the merged profile dict."""
     mobile = normalize_phone(mobile)
     name = str(name or "").strip()[:60]
+    incoming = _clean_consumer_profile(profile)
     now = time.time()
     con = _connect()
     try:
-        crow = con.execute("SELECT id, name FROM consumers WHERE mobile=?", (mobile,)).fetchone()
+        crow = con.execute("SELECT id, name, profile FROM consumers WHERE mobile=?", (mobile,)).fetchone()
         if crow is None:
-            con.execute("INSERT INTO consumers(mobile, name, created_at, last_login_at) VALUES(?,?,?,?)",
-                        (mobile, name, now, now))
-            crow = con.execute("SELECT id, name FROM consumers WHERE mobile=?", (mobile,)).fetchone()
-        elif name and not crow["name"]:
-            con.execute("UPDATE consumers SET name=?, last_login_at=? WHERE id=?", (name, now, crow["id"]))
+            con.execute(
+                "INSERT INTO consumers(mobile, name, profile, created_at, last_login_at) VALUES(?,?,?,?,?)",
+                (mobile, name, json.dumps(incoming, ensure_ascii=False), now, now))
+            crow = con.execute("SELECT id, name, profile FROM consumers WHERE mobile=?", (mobile,)).fetchone()
         else:
-            con.execute("UPDATE consumers SET last_login_at=? WHERE id=?", (now, crow["id"]))
+            try:
+                existing = json.loads(crow["profile"] or "{}")
+            except (TypeError, ValueError):
+                existing = {}
+            merged = {**existing, **incoming}
+            final_name = name if (name and not crow["name"]) else crow["name"]
+            con.execute("UPDATE consumers SET name=?, profile=?, last_login_at=? WHERE id=?",
+                        (final_name, json.dumps(merged, ensure_ascii=False), now, crow["id"]))
+            crow = {"id": crow["id"], "name": final_name, "profile": json.dumps(merged, ensure_ascii=False)}
         con.commit()
-        final_name = name or crow["name"]
-        return {"id": crow["id"], "mobile": mobile, "name": final_name}
+        try:
+            prof_out = json.loads(crow["profile"] or "{}")
+        except (TypeError, ValueError):
+            prof_out = {}
+        return {"id": crow["id"], "mobile": mobile, "name": name or crow["name"], "profile": prof_out}
     finally:
         con.close()
 

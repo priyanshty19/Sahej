@@ -156,6 +156,27 @@ def run():
     rtok = store.create_consumer_session(rc["id"])
     chk("register_consumer session roundtrips", store.get_consumer_session(rtok)["mobile"] == "9812300077")
 
+    # Consumer profile facets (For You wizard answers) persist server-side
+    rc4 = store.register_consumer("9812300111", name="Meena", profile={
+        "state": "BR", "age": "45", "gender": "female", "category": "obc",
+        "occupation": "farmer", "bpl": True, "disability": False, "rural": True,
+        "junk_field": "should be dropped"})
+    chk("register_consumer stores whitelisted profile facets",
+        rc4["profile"]["state"] == "BR" and rc4["profile"]["gender"] == "female"
+        and rc4["profile"]["category"] == "obc" and rc4["profile"]["occupation"] == "farmer"
+        and rc4["profile"]["bpl"] is True and rc4["profile"]["rural"] is True)
+    chk("register_consumer coerces age to int", rc4["profile"]["age"] == 45)
+    chk("register_consumer drops unknown fields", "junk_field" not in rc4["profile"])
+    chk("register_consumer keeps explicit false flags (a real answer, not absence)",
+        rc4["profile"]["disability"] is False)
+    # a later visit with only a name should not erase the previously stored facets
+    rc5 = store.register_consumer("9812300111", name="")
+    chk("register_consumer merges: later call without profile keeps earlier facets",
+        rc5["profile"]["state"] == "BR" and rc5["profile"]["occupation"] == "farmer")
+    rc6 = store.register_consumer("9812300111", profile={"age": "46"})
+    chk("register_consumer merges: new facet added, old facets retained",
+        rc6["profile"]["age"] == 46 and rc6["profile"]["state"] == "BR")
+
     passed = sum(1 for _, ok_ in checks if ok_)
     for name, ok_ in checks:
         print(f"  [{'PASS' if ok_ else 'FAIL'}] {name}")
