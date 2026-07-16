@@ -240,6 +240,9 @@ const I18N={
   fyEditB:"Edit answers",fyShareB:"Share",fyClearB:"Clear",fyShareMsg:"Government schemes I may qualify for (via Sahej):",
   qMobile:"Mobile number",qName:"Your name",wizMobilePh:"10-digit mobile",wizNamePh:"Your name",
   wizBadMobile:"Enter a valid 10-digit Indian mobile number, or leave it blank",
+  loadingChoices:"Loading choices…",loadSlow:"Still loading choices — try again in a moment.",
+  loadFailed:"Could not load filters. You can still browse schemes, or retry.",
+  retry:"Retry",
   income:"Annual income (₹)",
   gateTitle:"See this scheme's full details",gateLead:"Enter your mobile number to view eligibility, amount, documents and how to apply.",
   gatePhone:"10-digit mobile",gateBtn:"View details",gateBad:"Enter a valid 10-digit Indian mobile number",
@@ -268,6 +271,9 @@ const I18N={
   fyEditB:"बदलें",fyShareB:"भेजें",fyClearB:"हटाएँ",fyShareMsg:"सरकारी योजनाएँ जिनके लिए मैं पात्र हो सकता/सकती हूँ (सहज से):",
   qMobile:"मोबाइल नंबर",qName:"आपका नाम",wizMobilePh:"10 अंकों का मोबाइल",wizNamePh:"आपका नाम",
   wizBadMobile:"मान्य 10 अंकों का मोबाइल नंबर डालें, या खाली छोड़ दें",
+  loadingChoices:"विकल्प लोड हो रहे हैं…",loadSlow:"विकल्प अभी लोड हो रहे हैं — थोड़ी देर में फिर कोशिश करें।",
+  loadFailed:"फ़िल्टर लोड नहीं हुए। आप योजनाएँ देख सकते हैं, या फिर कोशिश करें।",
+  retry:"फिर कोशिश करें",
   income:"वार्षिक आय (₹)",
   gateTitle:"इस योजना का पूरा विवरण देखें",gateLead:"पात्रता, राशि, दस्तावेज़ और आवेदन कैसे करें — देखने के लिए अपना मोबाइल नंबर डालें।",
   gatePhone:"10 अंकों का मोबाइल",gateBtn:"विवरण देखें",gateBad:"मान्य 10 अंकों का भारतीय मोबाइल नंबर डालें",
@@ -401,10 +407,13 @@ async function runSearch(){
   const f=filters();
   const qs=new URLSearchParams(f).toString();
   try{
-    const r=await(await fetch("/api/schemes"+(qs?"?"+qs:""))).json();
+    const resp=await fetch("/api/schemes"+(qs?"?"+qs:""));
+    if(!resp.ok)throw new Error("schemes "+resp.status);
+    const r=await resp.json();
     renderList(r);
   }catch(e){
-    document.getElementById("grid").innerHTML='<div class="empty">Offline — could not load schemes.</div>';
+    document.getElementById("count").textContent=L("loadFailed");
+    document.getElementById("grid").innerHTML='<div class="empty">'+esc(L("loadFailed"))+' <button class="bdg bg-tag" data-retry-search="1" style="border:none;cursor:pointer">'+esc(L("retry"))+'</button></div>';
   }
 }
 function badgeRow(s){
@@ -597,21 +606,52 @@ window.addEventListener("popstate",()=>{
   if(m)openDetail(m[1],false); else closeDetail(false);
 });
 
-const dataReady=(async()=>{
+const DATA_TIMEOUT_MS=8000;
+let dataState="idle", dataError="";
+function fallbackFacets(){return {occupations:[],benefit_types:[],version:"",total:0};}
+function fetchJson(url){
+  return fetch(url).then(r=>{if(!r.ok)throw new Error(url+" "+r.status);return r.json();});
+}
+function withTimeout(promise, ms){
+  return new Promise((resolve,reject)=>{
+    const t=setTimeout(()=>reject(new Error("timeout")),ms);
+    promise.then(v=>{clearTimeout(t);resolve(v);},e=>{clearTimeout(t);reject(e);});
+  });
+}
+function updateFooter(){
+  const foot=document.getElementById("foot");
+  foot.textContent=L("foot")+(FACETS&&FACETS.version||"")+" · "+(FACETS&&FACETS.total||0)+" schemes";
+}
+function showDataRetry(where){
+  const html='<span>'+esc(L("loadFailed"))+'</span> <button class="bdg bg-tag" data-retry-data="1" style="border:none;cursor:pointer">'+esc(L("retry"))+'</button>';
+  const target=document.getElementById(where||"count");
+  if(target)target.innerHTML=html;
+}
+async function loadData(){
+  dataState="loading";dataError="";
   try{
-    const [f,meta]=await Promise.all([
-      (await fetch("/api/facets")).json(),
-      (await fetch("/api/meta")).json()]);
-    FACETS=f; STATES=meta.states||[];
-  }catch(e){FACETS={occupations:[],benefit_types:[]};}
-})();
+    const [f,meta]=await withTimeout(Promise.all([fetchJson("/api/facets"),fetchJson("/api/meta")]),DATA_TIMEOUT_MS);
+    FACETS=f||fallbackFacets(); STATES=meta.states||[];
+    dataState="ready";
+    fillSelects(); updateFooter();
+    return true;
+  }catch(e){
+    FACETS=FACETS||fallbackFacets(); STATES=STATES||[];
+    dataState="error";dataError=e&&e.message||"load failed";
+    showDataRetry("count");
+    return false;
+  }
+}
+let dataReady=loadData();
+async function ensureData(){
+  if(dataState==="ready")return true;
+  if(dataState!=="loading")dataReady=loadData();
+  return dataReady;
+}
 async function init(){
   applyLang();
-  await dataReady;
   document.getElementById("fyBtn").disabled=false;
-  fillSelects();
-  const foot=document.getElementById("foot");
-  foot.textContent=L("foot")+(FACETS.version||"")+" · "+(FACETS.total||0)+" schemes";
+  fillSelects(); updateFooter();
   const m=location.pathname.match(/^\/scheme\/([A-Za-z0-9_-]+)$/);
   if(m)openDetail(m[1],false);
   if(profile)profileToControls(profile);
@@ -635,6 +675,13 @@ document.getElementById("clearBtn").addEventListener("click",()=>{
   ["f_bpl","f_disability","f_rural"].forEach(id=>document.getElementById(id).checked=false);
   toggleOccOther("f_occupation","f_occupation_other");
   runSearch();
+});
+document.addEventListener("click",e=>{
+  if(e.target&&e.target.dataset&&e.target.dataset.retryData){
+    if(e.target.dataset.retryData==="wizard")openWizard();
+    else ensureData().then(ok=>{if(ok)runSearch();});
+  }
+  if(e.target&&e.target.dataset&&e.target.dataset.retrySearch)runSearch();
 });
 document.getElementById("backBtn").addEventListener("click",()=>closeDetail(true));
 document.getElementById("langSel").addEventListener("change",e=>{
@@ -701,7 +748,16 @@ function renderSegs(){
   fe.querySelectorAll(".seg").forEach(b=>b.addEventListener("click",()=>{draft[b.dataset.f]=!draft[b.dataset.f];renderSegs();}));
 }
 async function openWizard(){
-  await dataReady;
+  document.getElementById("fyTitle").textContent=L("fyTitle");
+  document.getElementById("fyLead").textContent=L("loadingChoices");
+  document.getElementById("w_err").textContent="";
+  document.getElementById("fyGo").disabled=true;
+  showModal();
+  if(!await ensureData()){
+    document.getElementById("fyLead").textContent=L("fyLead");
+    document.getElementById("w_err").innerHTML=esc(L(dataError==="timeout"?"loadSlow":"loadFailed"))+' <button type="button" class="bdg bg-tag" data-retry-data="wizard" style="border:none;cursor:pointer">'+esc(L("retry"))+'</button>';
+    return;
+  }
   draft=Object.assign({who:"self",state:"",age:"",gender:"",category:"",occupation:"",bpl:false,disability:false,rural:false},profile||{});
   document.getElementById("fyTitle").textContent=L("fyTitle");
   document.getElementById("fyLead").textContent=L("fyLead");
@@ -721,8 +777,8 @@ async function openWizard(){
   document.getElementById("w_mobile").value=draft.mobile||"";
   document.getElementById("w_name").value=draft.name||"";
   document.getElementById("w_err").textContent="";
+  document.getElementById("fyGo").disabled=false;
   renderSegs();
-  showModal();
 }
 function commitWizard(){
   draft.state=document.getElementById("w_state").value;
@@ -737,6 +793,7 @@ function commitWizard(){
   }
   draft.mobile=mobileRaw; draft.name=nameRaw;
   profile=Object.assign({},draft);saveProfile(profile);
+  markWizardSeen();
   hideModal();
   profileToControls(profile);
   runSearch();
@@ -751,11 +808,12 @@ function fyShareFn(){
   window.open("https://wa.me/?text="+encodeURIComponent(txt),"_blank","noopener");
 }
 function showModal(){document.getElementById("fyModal").hidden=false;document.body.classList.add("modal-open");}
-function hideModal(){document.getElementById("fyModal").hidden=true;document.body.classList.remove("modal-open");
-  try{localStorage.setItem("sahej_fy_seen","1");}catch(e){}}
+function markWizardSeen(){try{localStorage.setItem("sahej_fy_seen","1");}catch(e){}}
+function hideModal(){document.getElementById("fyModal").hidden=true;document.body.classList.remove("modal-open");}
 function browseEverything(){
   profile=null;saveProfile(null);document.getElementById("fyBanner").hidden=true;
   document.getElementById("clearBtn").click();
+  markWizardSeen();
   hideModal();
 }
 document.getElementById("fyBtn").addEventListener("click",openWizard);
