@@ -793,6 +793,7 @@ function commitWizard(){
   }
   draft.mobile=mobileRaw; draft.name=nameRaw;
   profile=Object.assign({},draft);saveProfile(profile);
+  markWizardSeen();
   hideModal();
   profileToControls(profile);
   runSearch();
@@ -807,11 +808,12 @@ function fyShareFn(){
   window.open("https://wa.me/?text="+encodeURIComponent(txt),"_blank","noopener");
 }
 function showModal(){document.getElementById("fyModal").hidden=false;document.body.classList.add("modal-open");}
-function hideModal(){document.getElementById("fyModal").hidden=true;document.body.classList.remove("modal-open");
-  try{localStorage.setItem("sahej_fy_seen","1");}catch(e){}}
+function markWizardSeen(){try{localStorage.setItem("sahej_fy_seen","1");}catch(e){}}
+function hideModal(){document.getElementById("fyModal").hidden=true;document.body.classList.remove("modal-open");}
 function browseEverything(){
   profile=null;saveProfile(null);document.getElementById("fyBanner").hidden=true;
   document.getElementById("clearBtn").click();
+  markWizardSeen();
   hideModal();
 }
 document.getElementById("fyBtn").addEventListener("click",openWizard);
