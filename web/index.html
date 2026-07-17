@@ -178,37 +178,9 @@
            cursor:pointer;padding:0;text-decoration:underline}
   @media print{.screen-home,.screen-form,.placeholder,header .hbtns,.offline,.backbar,.tabbar{display:none!important}
     .screen-mother{display:block!important}}
-  /* login gate: ASHA workers sign in before using the tool (online) */
-  #ashaGate{position:fixed;inset:0;background:rgba(15,45,40,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
-    z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
-  #ashaGate[hidden]{display:none}
-  .gatecard{background:#fff;color:#1d2421;border-radius:16px;max-width:420px;width:100%;padding:24px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
-  .gatecard h2{margin:0 0 4px;font-size:21px}
-  .gatecard p{margin:0 0 14px;color:#6b7670;font-size:13.5px}
-  .gatecard input{width:100%;padding:12px;border:1px solid #e4e0d7;border-radius:10px;font-size:16px;margin-bottom:10px}
-  .gerr{color:#a4453a;font-size:13px;min-height:18px;margin-bottom:2px}
-  .grow{display:flex;gap:10px;flex-wrap:wrap}
-  .gbtn{flex:1;min-width:130px;background:#0f7b6c;color:#fff;border:none;border-radius:10px;padding:12px;font-size:15px;font-weight:700;cursor:pointer}
-  .gbtn.ghost{background:#fff;color:#0f7b6c;border:1px solid #0f7b6c}
-  .glink{display:inline-block;margin-top:14px;color:#6b7670;font-size:13px}
 </style>
 </head>
 <body>
-<div id="ashaGate" hidden>
-  <div class="gatecard" role="dialog" aria-modal="true" aria-labelledby="gate-title">
-    <h2 id="gate-title">Sign in to Sahej</h2>
-    <p id="gate-lead">This tool is for ASHA workers. Sign in or create an account to load and save your caseload securely.</p>
-    <input id="g_name" type="text" placeholder="Your name" hidden autocomplete="name">
-    <input id="g_phone" type="tel" inputmode="numeric" placeholder="10-digit mobile number" autocomplete="username">
-    <input id="g_pin" type="password" inputmode="numeric" placeholder="4–8 digit PIN" autocomplete="current-password">
-    <div id="g_err" class="gerr" role="alert"></div>
-    <div class="grow">
-      <button id="g_signin" class="gbtn" type="button">Sign in</button>
-      <button id="g_register" class="gbtn ghost" type="button">Create account</button>
-    </div>
-    <a href="/about" class="glink">← Back to the story</a>
-  </div>
-</div>
 <div class="offline" id="offlineBanner" role="status">Offline — showing saved data. Changes still work; they sync from your phone's storage.</div>
 <div class="offline" id="metaErrorBanner" role="status">Could not load form options (state/category/etc). Your caseload still works. <button class="abtn" style="background:#fff" id="metaRetryBtn" type="button">Retry</button></div>
 <header id="hdr">
@@ -519,7 +491,7 @@ async function init(){
   loadMeta();
   WORKER=await whoami();
   renderAcct();
-  if(WORKER){hideAshaGate();syncNow();}
+  if(WORKER){syncNow();}
   else if(navigator.onLine){showAshaGate();}
 }
 document.getElementById("metaRetryBtn").addEventListener("click",loadMeta);
@@ -690,22 +662,6 @@ async function logout(){
 }
 // ---- login gate: ASHA sign-in is handled by Clerk on the /about page ----
 function showAshaGate(){if(navigator.onLine)location.replace("/about#login");}
-function hideAshaGate(){const g=document.getElementById("ashaGate");if(g)g.hidden=true;}
-async function gateAuth(register){
-  const err=document.getElementById("g_err");
-  const phone=document.getElementById("g_phone").value.trim();
-  const pin=document.getElementById("g_pin").value.trim();
-  const nameEl=document.getElementById("g_name");
-  if(register&&nameEl.hidden){nameEl.hidden=false;nameEl.focus();err.textContent=L("nameFirst")||"Enter your name to create an account";return;}
-  err.textContent="";
-  try{
-    const r=await api(register?"/api/register":"/api/login",{phone:phone,pin:pin,name:nameEl.value.trim()});
-    WORKER=r.worker;hideAshaGate();renderAcct();syncNow();
-  }catch(e){err.textContent=e.message;}
-}
-document.getElementById("g_signin").addEventListener("click",()=>gateAuth(false));
-document.getElementById("g_register").addEventListener("click",()=>gateAuth(true));
-document.getElementById("g_pin").addEventListener("keydown",e=>{if(e.key==="Enter")gateAuth(false);});
 
 // ---- screen router: home | mother | form (bottom-nav on phones, sidebar on desktop) ----
 let screen="home", homeTab="all";

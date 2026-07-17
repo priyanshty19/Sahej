@@ -372,6 +372,14 @@
 <script>
 (function(){
   const $=id=>document.getElementById(id);
+  // Match the widget to Sahej's own look instead of Clerk's default purple/blue
+  // theme — keeps the footer (it carries the "Sign up" toggle the "New here?"
+  // hint above points at) but re-themes colors/type/radius to fit in.
+  const CLERK_APPEARANCE={
+    variables:{colorPrimary:"#0f7b6c",colorText:"#1d2421",colorTextSecondary:"#6b7670",
+      colorBackground:"#ffffff",colorInputBackground:"#ffffff",colorInputText:"#1d2421",
+      borderRadius:"10px",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif"}
+  };
   const err=m=>{const e=$("a_err"); if(e) e.textContent=m||"";};
   const fine=m=>{const e=$("a_fine"); if(e) e.textContent=m;};
   let done=false;
@@ -401,7 +409,7 @@
         if(suppress && window.Clerk.user){ try{ await window.Clerk.signOut(); }catch(_){} }
         else if(window.Clerk.user){ await exchangeAndGo(); return; }
         suppress=false;  // a completed sign-in from here on should proceed to the tool
-        window.Clerk.mountSignIn($("clerk-signin"));
+        window.Clerk.mountSignIn($("clerk-signin"), {appearance: CLERK_APPEARANCE});
         window.Clerk.addListener(ev=>{ if(!suppress && ev.user && window.Clerk.session) exchangeAndGo(); });
       }catch(e){ err("Sign-in failed to load — refresh and retry"); }
     });
