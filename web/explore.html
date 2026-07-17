@@ -351,6 +351,13 @@ const BT_LABELS={cash:["Cash","नकद"],pension:["Pension","पेंशन"]
  scholarship:["Scholarship","छात्रवृत्ति"],housing:["Housing","आवास"],in_kind:["In kind","वस्तु/सेवा"],
  document:["Document","दस्तावेज़"],service:["Service","सेवा"],savings:["Savings","बचत"]};
 
+// Re-theme Clerk's popup to Sahej's own colors/type instead of its default
+// purple/blue — the footer (sign-up toggle, branding) stays as Clerk ships it.
+const CLERK_APPEARANCE={
+  variables:{colorPrimary:"#0f7b6c",colorText:"#1d2421",colorTextSecondary:"#6b7670",
+    colorBackground:"#ffffff",colorInputBackground:"#ffffff",colorInputText:"#1d2421",
+    borderRadius:"10px",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif"}
+};
 const LANGS=["en","hi","bn","ta","mr"];
 let lang=LANGS.includes(localStorage.getItem("sahej_lang"))?localStorage.getItem("sahej_lang"):"en";
 let FACETS=null, STATES=[], detail=null, t=null;
@@ -592,7 +599,7 @@ function wireGate(){
   btn.addEventListener("click",()=>{
     if(!window.__clerk){err().textContent=L("gateNetwork");return;}
     err().textContent="";
-    try{window.__clerk.openSignIn({});}catch(e){err().textContent=L("gateNetwork");}
+    try{window.__clerk.openSignIn({appearance:CLERK_APPEARANCE});}catch(e){err().textContent=L("gateNetwork");}
   });
 }
 function closeDetail(push){
