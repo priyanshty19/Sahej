@@ -210,6 +210,7 @@
   </div>
 </div>
 <div class="offline" id="offlineBanner" role="status">Offline — showing saved data. Changes still work; they sync from your phone's storage.</div>
+<div class="offline" id="metaErrorBanner" role="status">Could not load form options (state/category/etc). Your caseload still works. <button class="abtn" style="background:#fff" id="metaRetryBtn" type="button">Retry</button></div>
 <header id="hdr">
   <div>
     <a href="/" style="color:inherit;text-decoration:none" title="Back to home"><h1 id="t-title" style="margin:0">Sahej · सहज</h1></a>
@@ -464,9 +465,14 @@ function optLabel(field,val){return (OPT_LABELS[field]&&OPT_LABELS[field][val])|
 
 function fillSelect(el,values,field){el.innerHTML=values.map(v=>`<option value="${v}">${optLabel(field,v)}</option>`).join("");}
 
-async function init(){
-  lang=localStorage.getItem("sahej_lang")==="hi"?"hi":"en";
-  META = await (await fetch("/api/meta")).json();
+function withTimeout(promise,ms){
+  return new Promise((resolve,reject)=>{
+    const t=setTimeout(()=>reject(new Error("timeout")),ms);
+    promise.then(v=>{clearTimeout(t);resolve(v);},e=>{clearTimeout(t);reject(e);});
+  });
+}
+
+function applyMeta(){
   const states = META.states;
   const stateOpts = states.map(s=>`<option value="${s.code}">${s.name}${s.lps?" (LPS)":""}</option>`).join("");
   document.getElementById("state").innerHTML = stateOpts;
@@ -482,16 +488,41 @@ async function init(){
   fillSelect(document.getElementById("d_relation_to_deceased"),dOpts.relation_to_deceased||["spouse","child","parent","sibling","other"],"relation_to_deceased");
   fillSelect(document.getElementById("d_applicant_sex"),dOpts.applicant_sex||["female","male"],"applicant_sex");
   document.getElementById("d_death_date").value=today();
+  loadIntoForm();
+}
+
+async function loadMeta(){
+  try{
+    META = await withTimeout((async()=>{
+      const r=await fetch("/api/meta");
+      if(!r.ok)throw new Error("meta "+r.status);
+      return r.json();
+    })(),15000);
+    document.getElementById("metaErrorBanner").classList.remove("on");
+    applyMeta();
+  }catch(e){
+    document.getElementById("metaErrorBanner").classList.add("on");
+  }
+}
+
+async function init(){
+  lang=localStorage.getItem("sahej_lang")==="hi"?"hi":"en";
   setupVoice();
   caseload=caseload.map(migrate);
   applyLang(); loadIntoForm();
   setHomeTab(caseload.length?"today":"all");
   go("home");
+  // Caseload/sign-in don't depend on /api/meta (state/category/etc option
+  // lists) — load it in parallel instead of blocking the whole tool on it,
+  // since it can be slow on a cold instance; a failure/timeout shows a
+  // retry banner rather than leaving the page hung or throwing unhandled.
+  loadMeta();
   WORKER=await whoami();
   renderAcct();
   if(WORKER){hideAshaGate();syncNow();}
   else if(navigator.onLine){showAshaGate();}
 }
+document.getElementById("metaRetryBtn").addEventListener("click",loadMeta);
 
 function applyLang(){
   document.getElementById("t-title").textContent=L("title");
