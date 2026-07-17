@@ -310,6 +310,10 @@ class Handler(BaseHTTPRequestHandler):
             if cfg["clerk_enabled"]:
                 cfg["clerk_publishable_key"] = clerk_auth.PUBLISHABLE_KEY
                 cfg["clerk_frontend_api"] = clerk_auth.frontend_api()
+            elif clerk_auth is None:
+                print("[clerk] disabled: clerk_auth module failed to import", flush=True)
+            else:
+                print(f"[clerk] disabled: {clerk_auth.config_status()}", flush=True)
             return self._json(200, cfg)
         if path == "/api/clerk/me":
             if not (clerk_auth and clerk_auth.is_configured()):

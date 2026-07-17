@@ -56,6 +56,15 @@ def is_configured():
     return bool(PUBLISHABLE_KEY and SECRET_KEY and jwt is not None)
 
 
+def config_status():
+    """Boolean breakdown of why Clerk might be disabled — never the secret
+    values themselves — so a misconfigured deployment is diagnosable from
+    server logs instead of just showing "unavailable" with no reason."""
+    return {"publishable_key_set": bool(PUBLISHABLE_KEY),
+            "secret_key_set": bool(SECRET_KEY),
+            "pyjwt_importable": jwt is not None}
+
+
 def issuer():
     fa = frontend_api()
     return f"https://{fa}" if fa else ""
