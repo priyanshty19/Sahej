@@ -106,7 +106,7 @@ _initialized = False
 def _connect():
     global _initialized
     if _PG:
-        raw = psycopg2.connect(DATABASE_URL, connect_timeout=10,
+        raw = psycopg2.connect(DATABASE_URL, connect_timeout=5,
                                cursor_factory=psycopg2.extras.RealDictCursor)
     else:
         raw = sqlite3.connect(DB_PATH, timeout=10)
@@ -527,23 +527,43 @@ def get_case_by_share(token):
 
 
 # --- content: schemes + reference docs (the catalog lives in the database) ----
+#
+# One page load (explore.html's dataReady) fans out into /api/facets + /api/meta,
+# which between them used to call content_ready()/get_reference() ~10-12 times —
+# each one opening its own fresh Postgres connection (no pooling on the stdlib
+# path). On a cold serverless instance talking to a remote DB that's easily
+# several seconds of pure connection overhead, enough to blow the frontend's
+# fetch timeout before the (fast, reliable) JSON fallback ever gets a chance.
+# These are small, rarely-changing reference docs, so an in-process cache with a
+# short TTL — invalidated immediately on write — cuts that down to ~1 real
+# connection per distinct name per TTL window, on every backend.
+_CACHE_TTL = 20.0
+_content_ready_cache = {"value": None, "ts": 0.0}
+_ref_cache = {}  # name -> (value, ts)
+
 
 def content_ready():
     """True when the schemes table has been seeded — the signal for catalog.py /
     engine.py to read from the database instead of the bundled JSON. Any failure
     (no DB, unreachable, not yet migrated) returns False so the app still boots
     from disk; this keeps CI and offline dev working with zero configuration."""
+    now = time.time()
+    if _content_ready_cache["value"] is not None and now - _content_ready_cache["ts"] < _CACHE_TTL:
+        return _content_ready_cache["value"]
     try:
         con = _connect()
     except Exception:  # noqa: BLE001 — DB optional; fall back to JSON
+        _content_ready_cache.update(value=False, ts=now)
         return False
     try:
         row = con.execute("SELECT COUNT(*) AS n FROM schemes").fetchone()
-        return bool(row and row["n"] > 0)
+        ready = bool(row and row["n"] > 0)
     except Exception:  # noqa: BLE001
-        return False
+        ready = False
     finally:
         con.close()
+    _content_ready_cache.update(value=ready, ts=now)
+    return ready
 
 
 def db_health():
@@ -584,6 +604,7 @@ def replace_schemes(schemes):
         return len(schemes)
     finally:
         con.close()
+        _content_ready_cache.update(value=None, ts=0.0)
 
 
 def all_schemes(source=None):
@@ -618,15 +639,23 @@ def upsert_reference(name, doc):
         con.commit()
     finally:
         con.close()
+    _ref_cache.pop(str(name), None)
 
 
 def get_reference(name):
+    key = str(name)
+    now = time.time()
+    cached = _ref_cache.get(key)
+    if cached is not None and now - cached[1] < _CACHE_TTL:
+        return cached[0]
     con = _connect()
     try:
-        row = con.execute("SELECT doc FROM reference_docs WHERE name=?", (str(name),)).fetchone()
-        return json.loads(row["doc"]) if row else None
+        row = con.execute("SELECT doc FROM reference_docs WHERE name=?", (key,)).fetchone()
+        value = json.loads(row["doc"]) if row else None
     finally:
         con.close()
+    _ref_cache[key] = (value, now)
+    return value
 
 
 # --- leads: consumer mobile capture (OTP-ready) -------------------------------
