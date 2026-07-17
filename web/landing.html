@@ -179,8 +179,13 @@
       <div id="a_signup_form" hidden>
         <input id="a_su_name" type="text" placeholder="Your name" autocomplete="name">
         <input id="a_su_username" type="text" placeholder="Choose a username" autocomplete="username">
+        <input id="a_su_phone" type="tel" inputmode="numeric" maxlength="10" placeholder="10-digit mobile number" autocomplete="tel">
         <input id="a_su_password" type="password" placeholder="Choose a password" autocomplete="new-password">
         <button type="button" class="btn btn-primary" id="a_signup_btn" style="width:100%">Create account →</button>
+      </div>
+      <div id="a_signup_code_form" hidden>
+        <input id="a_su_code" type="text" inputmode="numeric" maxlength="6" placeholder="6-digit code sent to your phone">
+        <button type="button" class="btn btn-primary" id="a_signup_verify_btn" style="width:100%">Verify & create →</button>
       </div>
       <div class="err" id="a_err" role="alert"></div>
       <p class="fine" id="a_fine">Sign in with your ASHA <strong>username and password</strong>.</p>
@@ -391,11 +396,12 @@
   let done=false;
   function showTab(which){
     $("a_signin_form").hidden=which!=="signin"; $("a_signup_form").hidden=which!=="signup";
+    $("a_signup_code_form").hidden=true;
     $("a_tab_signin").className="btn "+(which==="signin"?"btn-dark":"btn-outline");
     $("a_tab_signup").className="btn "+(which==="signup"?"btn-dark":"btn-outline");
     err("");
     fine(which==="signin"?"Sign in with your ASHA username and password."
-      :"Register with a username and password to save and sync your caseload.");
+      :"Register with a username, phone number and password to save and sync your caseload.");
   }
   function clerkErrMsg(e,fallback){
     const msg=e&&e.errors&&e.errors[0]&&e.errors[0].message;
@@ -470,16 +476,39 @@
   async function doSignUp(){
     const btn=$("a_signup_btn"); btn.dataset.label=btn.dataset.label||btn.textContent;
     const name=$("a_su_name").value.trim(), username=$("a_su_username").value.trim(), password=$("a_su_password").value;
+    const phoneDigits=($("a_su_phone").value||"").replace(/\D/g,"");
     if(!name||!username||!password){ err("Fill in your name, a username and a password."); return; }
+    if(!/^[6-9]\d{9}$/.test(phoneDigits)){ err("Enter a valid 10-digit mobile number."); return; }
     err(""); setBusy(btn,true);
     try{
       const client=window.Clerk.client;
-      const attempt=await client.signUp.create({username:username,password:password,firstName:name});
+      const attempt=await client.signUp.create({username:username,password:password,firstName:name,phoneNumber:"+91"+phoneDigits});
+      if(attempt.status==="complete"){
+        await window.Clerk.setActive({session:attempt.createdSessionId});
+        fine("Account created — opening your tool…"); await exchangeAndGo();
+      }else if((attempt.unverifiedFields||[]).includes("phone_number")){
+        // Clerk stored the fields but wants the phone number verified before
+        // finishing sign-up — same OTP mechanics as explore.html's gate.
+        await client.signUp.preparePhoneNumberVerification({strategy:"phone_code"});
+        $("a_signup_form").hidden=true; $("a_signup_code_form").hidden=false;
+        fine("Enter the 6-digit code we sent to your phone.");
+      }else{ err("Could not finish sign-up ("+signUpDiag(attempt)+")."); }
+    }catch(e){ err(clerkErrMsg(e,"Could not create that account — try a different username or phone number.")); }
+    finally{ setBusy(btn,false); }
+  }
+  async function doSignUpVerify(){
+    const btn=$("a_signup_verify_btn"); btn.dataset.label=btn.dataset.label||btn.textContent;
+    const code=($("a_su_code").value||"").trim();
+    if(!/^\d{6}$/.test(code)){ err("Enter the 6-digit code."); return; }
+    err(""); setBusy(btn,true);
+    try{
+      const client=window.Clerk.client;
+      const attempt=await client.signUp.attemptPhoneNumberVerification({code:code});
       if(attempt.status==="complete"){
         await window.Clerk.setActive({session:attempt.createdSessionId});
         fine("Account created — opening your tool…"); await exchangeAndGo();
       }else{ err("Could not finish sign-up ("+signUpDiag(attempt)+")."); }
-    }catch(e){ err(clerkErrMsg(e,"Could not create that account — try a different username.")); }
+    }catch(e){ err(clerkErrMsg(e,"Wrong code — try again.")); }
     finally{ setBusy(btn,false); }
   }
   function wireForms(){
@@ -487,8 +516,10 @@
     $("a_tab_signup").addEventListener("click",()=>showTab("signup"));
     $("a_signin_btn").addEventListener("click",doSignIn);
     $("a_signup_btn").addEventListener("click",doSignUp);
+    $("a_signup_verify_btn").addEventListener("click",doSignUpVerify);
     $("a_password").addEventListener("keydown",e=>{if(e.key==="Enter")doSignIn();});
     $("a_su_password").addEventListener("keydown",e=>{if(e.key==="Enter")doSignUp();});
+    $("a_su_code").addEventListener("keydown",e=>{if(e.key==="Enter")doSignUpVerify();});
     showTab("signin");
   }
   initClerk();
