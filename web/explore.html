@@ -660,7 +660,12 @@ async function gateVerify(){
       // consumerExchange() -> checkConsumer() -> renderDetail().
       await window.__clerk.setActive({session:attempt.createdSessionId});
     }else{
-      err.textContent=L("gateNetwork");
+      // Surface what Clerk still wants instead of a blind generic error —
+      // the only channel back to us for diagnosing a dashboard config we
+      // can't see or test from outside (see landing.html's doSignUp).
+      const missing=gateSignUpMode?(attempt.missingFields||[]).concat(attempt.unverifiedFields||[]):
+        (attempt.supportedFirstFactors||[]).map(f=>f.strategy);
+      err.textContent=L("gateNetwork")+" (status="+attempt.status+(missing.length?" needs=["+missing.join(",")+"]":"")+")";
       btn.disabled=false;
     }
   }catch(e){

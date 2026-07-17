@@ -401,6 +401,21 @@
     const msg=e&&e.errors&&e.errors[0]&&e.errors[0].message;
     return msg||fallback;
   }
+  // Surface *what* Clerk still wants instead of a blind "contact support" —
+  // this is the only channel back to us for diagnosing a dashboard config
+  // (required fields, verification steps) we can't see or test from outside.
+  function signUpDiag(a){
+    const parts=["status="+a.status];
+    if(a.missingFields&&a.missingFields.length) parts.push("missing=["+a.missingFields.join(",")+"]");
+    if(a.unverifiedFields&&a.unverifiedFields.length) parts.push("unverified=["+a.unverifiedFields.join(",")+"]");
+    return parts.join(" ");
+  }
+  function signInDiag(a){
+    const parts=["status="+a.status];
+    const factors=(a.status==="needs_second_factor"?a.supportedSecondFactors:a.supportedFirstFactors)||[];
+    if(factors.length) parts.push("needs=["+factors.map(f=>f.strategy).join(",")+"]");
+    return parts.join(" ");
+  }
   async function exchangeAndGo(){
     if(done) return;
     try{
@@ -448,7 +463,7 @@
       if(attempt.status==="complete"){
         await window.Clerk.setActive({session:attempt.createdSessionId});
         fine("Signed in — opening your tool…"); await exchangeAndGo();
-      }else{ err("This account needs additional verification not supported here — contact support."); }
+      }else{ err("Sign-in needs an extra step this form doesn't handle yet ("+signInDiag(attempt)+")."); }
     }catch(e){ err(clerkErrMsg(e,"Wrong username or password.")); }
     finally{ setBusy(btn,false); }
   }
@@ -463,7 +478,7 @@
       if(attempt.status==="complete"){
         await window.Clerk.setActive({session:attempt.createdSessionId});
         fine("Account created — opening your tool…"); await exchangeAndGo();
-      }else{ err("Could not finish sign-up (extra verification required) — contact support."); }
+      }else{ err("Could not finish sign-up ("+signUpDiag(attempt)+")."); }
     }catch(e){ err(clerkErrMsg(e,"Could not create that account — try a different username.")); }
     finally{ setBusy(btn,false); }
   }
