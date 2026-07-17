@@ -351,13 +351,6 @@ const BT_LABELS={cash:["Cash","नकद"],pension:["Pension","पेंशन"]
  scholarship:["Scholarship","छात्रवृत्ति"],housing:["Housing","आवास"],in_kind:["In kind","वस्तु/सेवा"],
  document:["Document","दस्तावेज़"],service:["Service","सेवा"],savings:["Savings","बचत"]};
 
-// Re-theme Clerk's popup to Sahej's own colors/type instead of its default
-// purple/blue — the footer (sign-up toggle, branding) stays as Clerk ships it.
-const CLERK_APPEARANCE={
-  variables:{colorPrimary:"#0f7b6c",colorText:"#1d2421",colorTextSecondary:"#6b7670",
-    colorBackground:"#ffffff",colorInputBackground:"#ffffff",colorInputText:"#1d2421",
-    borderRadius:"10px",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif"}
-};
 const LANGS=["en","hi","bn","ta","mr"];
 let lang=LANGS.includes(localStorage.getItem("sahej_lang"))?localStorage.getItem("sahej_lang"):"en";
 let FACETS=null, STATES=[], detail=null, t=null;
@@ -588,19 +581,95 @@ async function registerConsumer(mobile,name,context,extraProfile){
     return true;
   }catch(e){return false;}
 }
+// Custom-built phone+OTP UI calling Clerk's headless client API directly
+// (signIn/signUp .create/.prepare*/.attempt* + setActive) instead of opening
+// Clerk's own popup — same verification, Sahej's own markup. A number that
+// isn't registered yet falls through to sign-up transparently (Clerk's
+// signIn.create rejects unknown identifiers with form_identifier_not_found).
 function gateHTML(){
-  return '<div class="gatebox"><h3>'+esc(L("gateTitle"))+'</h3><p>'+esc(L("gateLead"))+'</p>'
-    +'<div class="gaterow"><button id="gate_btn">'+esc(L("gateBtn"))+' →</button></div>'
-    +'<div class="gate-err" id="gate_err"></div></div>';
+  return '<div class="gatebox" id="gatebox"></div>';
+}
+let gateSignUpMode=false;
+function gateRenderPhoneStep(){
+  const box=document.getElementById("gatebox");
+  box.innerHTML='<h3>'+esc(L("gateTitle"))+'</h3><p>'+esc(L("gateLead"))+'</p>'
+    +'<div class="gaterow"><input type="tel" id="gate_phone" inputmode="numeric" maxlength="10" placeholder="'+esc(L("gatePhone"))+'">'
+    +'<button type="button" id="gate_send">'+esc(L("gateSendCode"))+' →</button></div>'
+    +'<div class="gate-err" id="gate_err"></div>';
+  document.getElementById("gate_send").addEventListener("click",gateSendCode);
+  document.getElementById("gate_phone").addEventListener("keydown",e=>{if(e.key==="Enter")gateSendCode();});
+}
+function gateRenderCodeStep(digits){
+  const box=document.getElementById("gatebox");
+  box.innerHTML='<h3>'+esc(L("gateCodeTitle"))+'</h3><p>'+esc(L("gateCodeSent").replace("{m}","+91 "+digits))+'</p>'
+    +'<input type="text" id="gate_code" inputmode="numeric" maxlength="6" placeholder="'+esc(L("gateCodePh"))+'">'
+    +'<input type="text" id="gate_name" placeholder="'+esc(L("gateNamePh"))+'">'
+    +'<div class="gaterow"><button type="button" id="gate_verify">'+esc(L("gateVerify"))+'</button></div>'
+    +'<button type="button" class="linklike" id="gate_resend">'+esc(L("gateResend"))+'</button>'
+    +'<div class="gate-err" id="gate_err"></div>';
+  document.getElementById("gate_verify").addEventListener("click",gateVerify);
+  document.getElementById("gate_code").addEventListener("keydown",e=>{if(e.key==="Enter")gateVerify();});
+  document.getElementById("gate_resend").addEventListener("click",gateRenderPhoneStep);
+}
+async function gateSendCode(){
+  const err=document.getElementById("gate_err");
+  const digits=(document.getElementById("gate_phone").value||"").replace(/\D/g,"");
+  if(!/^[6-9]\d{9}$/.test(digits)){err.textContent=L("gateBad");return;}
+  if(!window.__clerk){err.textContent=L("gateNetwork");return;}
+  err.textContent="";
+  const btn=document.getElementById("gate_send"); btn.disabled=true;
+  const e164="+91"+digits;
+  try{
+    const client=window.__clerk.client;
+    gateSignUpMode=false;
+    try{
+      const attempt=await client.signIn.create({identifier:e164});
+      const factor=(attempt.supportedFirstFactors||[]).find(f=>f.strategy==="phone_code");
+      if(!factor)throw {errors:[{code:"no_phone_factor"}]};
+      await client.signIn.prepareFirstFactor({strategy:"phone_code",phoneNumberId:factor.phoneNumberId});
+    }catch(e){
+      if(e&&e.errors&&e.errors[0]&&e.errors[0].code==="form_identifier_not_found"){
+        gateSignUpMode=true;
+        await client.signUp.create({phoneNumber:e164});
+        await client.signUp.preparePhoneNumberVerification({strategy:"phone_code"});
+      }else{ throw e; }
+    }
+    gateRenderCodeStep(digits);
+  }catch(e){
+    err.textContent=(e&&e.errors&&e.errors[0]&&e.errors[0].message)||L("gateNetwork");
+    btn.disabled=false;
+  }
+}
+async function gateVerify(){
+  const err=document.getElementById("gate_err");
+  const code=(document.getElementById("gate_code").value||"").trim();
+  const name=(document.getElementById("gate_name").value||"").trim();
+  if(!/^\d{6}$/.test(code)){err.textContent=L("gateBadCode");return;}
+  const btn=document.getElementById("gate_verify"); btn.disabled=true;
+  try{
+    const client=window.__clerk.client;
+    let attempt;
+    if(gateSignUpMode){
+      if(name){try{await client.signUp.update({firstName:name});}catch(_){}}
+      attempt=await client.signUp.attemptPhoneNumberVerification({code:code});
+    }else{
+      attempt=await client.signIn.attemptFirstFactor({strategy:"phone_code",code:code});
+    }
+    if(attempt.status==="complete"){
+      // initClerkConsumer()'s addListener picks this up and runs
+      // consumerExchange() -> checkConsumer() -> renderDetail().
+      await window.__clerk.setActive({session:attempt.createdSessionId});
+    }else{
+      err.textContent=L("gateNetwork");
+      btn.disabled=false;
+    }
+  }catch(e){
+    err.textContent=(e&&e.errors&&e.errors[0]&&e.errors[0].message)||L("gateBadCode");
+    btn.disabled=false;
+  }
 }
 function wireGate(){
-  const err=()=>document.getElementById("gate_err");
-  const btn=document.getElementById("gate_btn");
-  btn.addEventListener("click",()=>{
-    if(!window.__clerk){err().textContent=L("gateNetwork");return;}
-    err().textContent="";
-    try{window.__clerk.openSignIn({appearance:CLERK_APPEARANCE});}catch(e){err().textContent=L("gateNetwork");}
-  });
+  gateRenderPhoneStep();
 }
 function closeDetail(push){
   detail=null;
