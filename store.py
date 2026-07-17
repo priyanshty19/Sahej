@@ -566,6 +566,65 @@ def content_ready():
     return ready
 
 
+def get_references(names):
+    """Bulk reference-doc fetch: one connection, one query for a *list* of
+    names, folding in the content-readiness check.
+
+    The page-load path (catalog.load_catalog + engine.meta, called from
+    /api/facets and /api/meta) used to check content_ready() and then call
+    get_reference() once per distinct name — each opening its own Postgres
+    connection. Deduping repeats with the caches above still left one
+    connection per *distinct* name (5-6 on a cold instance), and against a
+    remote DB the connection handshake dominates: production logs show those
+    endpoints taking 6-14s on a cold instance, well past the frontend's
+    timeout, even after the earlier cache fix halved the count. Folding every
+    name into a single `WHERE name IN (...)` over one connection removes
+    that per-name handshake entirely.
+
+    Returns (ready, {name: doc_or_None}).
+    """
+    now = time.time()
+    names = [str(n) for n in names]
+    ready = (_content_ready_cache["value"]
+             if _content_ready_cache["value"] is not None and now - _content_ready_cache["ts"] < _CACHE_TTL
+             else None)
+    docs, missing = {}, []
+    for n in names:
+        cached = _ref_cache.get(n)
+        if cached is not None and now - cached[1] < _CACHE_TTL:
+            docs[n] = cached[0]
+        else:
+            missing.append(n)
+    if ready is False:
+        return False, docs
+    if ready is True and not missing:
+        return True, docs
+    try:
+        con = _connect()
+    except Exception:  # noqa: BLE001 — DB optional; fall back to JSON
+        _content_ready_cache.update(value=False, ts=now)
+        return False, docs
+    try:
+        if ready is None:
+            row = con.execute("SELECT COUNT(*) AS n FROM schemes").fetchone()
+            ready = bool(row and row["n"] > 0)
+            _content_ready_cache.update(value=ready, ts=now)
+        if ready and missing:
+            placeholders = ",".join("?" for _ in missing)
+            rows = con.execute(
+                f"SELECT name, doc FROM reference_docs WHERE name IN ({placeholders})", missing).fetchall()
+            found = {r["name"]: json.loads(r["doc"]) for r in rows}
+            for n in missing:
+                v = found.get(n)
+                docs[n] = v
+                _ref_cache[n] = (v, now)
+    except Exception:  # noqa: BLE001
+        pass
+    finally:
+        con.close()
+    return bool(ready), docs
+
+
 def db_health():
     """Small production diagnostic: report backend reachability without secrets."""
     out = {"backend": "postgres" if _PG else "sqlite",

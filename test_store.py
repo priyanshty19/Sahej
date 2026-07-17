@@ -119,6 +119,13 @@ def run():
     chk("reference roundtrip", store.get_reference("states")["states"][0]["code"] == "BR")
     store.upsert_reference("states", {"states": []})  # upsert overwrites
     chk("reference upsert overwrites", store.get_reference("states")["states"] == [])
+    ready, docs = store.get_references(["states", "does_not_exist"])
+    chk("get_references reports ready", ready is True)
+    chk("get_references returns doc for known name", docs["states"]["states"] == [])
+    chk("get_references returns None for missing name", docs["does_not_exist"] is None)
+    store.upsert_reference("does_not_exist", {"x": 1})
+    _, docs2 = store.get_references(["does_not_exist"])
+    chk("get_references sees fresh write after invalidation", docs2["does_not_exist"]["x"] == 1)
     chk("replace_schemes replaces, not appends",
         store.replace_schemes([("only", {"id": "only"}, "catalog")]) == 1 and len(store.all_schemes()) == 1)
 

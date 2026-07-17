@@ -281,16 +281,16 @@ def _db_ready():
         return False
 
 
-def load_kb(path=None, life_event="childbirth"):
+def load_kb(path=None, life_event="childbirth", prefetched=None):
     if path is None:
         if life_event not in LIFE_EVENTS:
             raise ProfileError(f"unknown life_event '{life_event}' — expected one of: {', '.join(LIFE_EVENTS)}")
-        if _db_ready():
-            kb = store.get_reference(f"{life_event}_schemes")
+        if prefetched is not None or _db_ready():
+            kb = prefetched.get(f"{life_event}_schemes") if prefetched is not None else store.get_reference(f"{life_event}_schemes")
             if kb is not None:
                 kb = dict(kb)
                 if "states" not in kb:
-                    ref = store.get_reference("states") or {}
+                    ref = (prefetched.get("states") if prefetched is not None else store.get_reference("states")) or {}
                     kb["states"] = ref.get("states", []) if isinstance(ref, dict) else (ref or [])
                 return kb
         path = os.path.join(DATA_DIR, f"{life_event}_schemes.json")
@@ -533,8 +533,17 @@ def work_plan(mothers, kb=None, as_of=None):
 
 
 def meta(kb=None):
-    kb = kb or load_kb()
-    death_kb = load_kb(life_event="death")
+    # One connection for both life-event KBs + states, instead of load_kb()
+    # separately opening a connection per name against the remote DB.
+    prefetched = None
+    if kb is None and store is not None:
+        try:
+            ready, docs = store.get_references(["childbirth_schemes", "death_schemes", "states"])
+            prefetched = docs if ready else None
+        except Exception:  # noqa: BLE001 — DB optional; fall back to JSON
+            prefetched = None
+    kb = kb or load_kb(prefetched=prefetched)
+    death_kb = load_kb(life_event="death", prefetched=prefetched)
     return {
         "states": kb.get("states", []),
         "visit_days": _visit_days(kb),
