@@ -606,7 +606,7 @@ window.addEventListener("popstate",()=>{
   if(m)openDetail(m[1],false); else closeDetail(false);
 });
 
-const DATA_TIMEOUT_MS=8000;
+const DATA_TIMEOUT_MS=15000;
 let dataState="idle", dataError="";
 function fallbackFacets(){return {occupations:[],benefit_types:[],version:"",total:0};}
 function fetchJson(url){

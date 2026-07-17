@@ -65,31 +65,41 @@ def load_catalog(path=None):
     otherwise from the bundled JSON — so CI and offline dev work unconfigured.
     An explicit `path` always forces the JSON file (used by tools/tests).
     """
+    prefetched = None
     if path is None and _db_ready():
-        meta = store.get_reference("catalog_meta") or {}
+        # One connection for catalog_meta + both life-event KBs, instead of
+        # three separate get_reference() calls each paying their own
+        # connection handshake against the remote DB — see get_references().
+        try:
+            _, prefetched = store.get_references(["catalog_meta", "childbirth_schemes", "death_schemes"])
+        except Exception:  # noqa: BLE001 — DB optional; fall back to JSON
+            prefetched = None
+        meta = (prefetched or {}).get("catalog_meta") or {}
         cat = {"version": meta.get("version"), "as_of": meta.get("as_of"),
                "schemes": store.all_schemes(source="catalog")}
     else:
         cat = _load_json(path or CATALOG_PATH)
         cat["schemes"] = list(cat["schemes"])
-    cat["schemes"] = cat["schemes"] + _derived_from_kbs()
+    cat["schemes"] = cat["schemes"] + _derived_from_kbs(prefetched)
     return cat
 
 
-def _derived_from_kbs():
+def _derived_from_kbs(prefetched=None):
     """Marketplace cards for life-event KB schemes not already in the catalog.
 
     The childbirth/death KBs remain the source of truth for the caseworker
     engine; here we surface them as browsable cards that deep-link to /asha.
+    `prefetched` (name -> doc) lets load_catalog() hand over data it already
+    fetched in one connection, instead of this reaching the DB again per name.
     """
     cards = []
     seen = {"pmmvy", "nfbs", "widow_pension"}  # already curated in catalog.json
-    use_db = _db_ready()
+    use_db = prefetched is not None or _db_ready()
     for event, fname in (("childbirth", "childbirth_schemes.json"),
                          ("death", "death_schemes.json")):
         kb = None
         if use_db:
-            kb = store.get_reference(f"{event}_schemes")
+            kb = prefetched.get(f"{event}_schemes") if prefetched is not None else store.get_reference(f"{event}_schemes")
         if kb is None:
             try:
                 kb = _load_json(os.path.join(HERE, "data", fname))
