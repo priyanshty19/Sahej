@@ -167,9 +167,23 @@
     <h2>Sign in to open your tool</h2>
     <p class="lead">Your caseload is saved securely to your account — so it survives a lost or changed phone, and every mother's plan is one tap away on your visits.</p>
     <div class="logincard">
-      <div id="clerk-signin" style="min-height:120px"></div>
+      <div class="loginbtns" style="margin-bottom:14px">
+        <button type="button" class="btn btn-dark" id="a_tab_signin" style="flex:1">Sign in</button>
+        <button type="button" class="btn btn-outline" id="a_tab_signup" style="flex:1">Sign up</button>
+      </div>
+      <div id="a_signin_form">
+        <input id="a_username" type="text" placeholder="Username" autocomplete="username">
+        <input id="a_password" type="password" placeholder="Password" autocomplete="current-password">
+        <button type="button" class="btn btn-primary" id="a_signin_btn" style="width:100%">Sign in →</button>
+      </div>
+      <div id="a_signup_form" hidden>
+        <input id="a_su_name" type="text" placeholder="Your name" autocomplete="name">
+        <input id="a_su_username" type="text" placeholder="Choose a username" autocomplete="username">
+        <input id="a_su_password" type="password" placeholder="Choose a password" autocomplete="new-password">
+        <button type="button" class="btn btn-primary" id="a_signup_btn" style="width:100%">Create account →</button>
+      </div>
       <div class="err" id="a_err" role="alert"></div>
-      <p class="fine" id="a_fine">Sign in with your ASHA <strong>username and password</strong>. New here? Use <strong>Sign up</strong> in the box above.</p>
+      <p class="fine" id="a_fine">Sign in with your ASHA <strong>username and password</strong>.</p>
     </div>
   </div>
 </section>
@@ -372,17 +386,21 @@
 <script>
 (function(){
   const $=id=>document.getElementById(id);
-  // Match the widget to Sahej's own look instead of Clerk's default purple/blue
-  // theme — keeps the footer (it carries the "Sign up" toggle the "New here?"
-  // hint above points at) but re-themes colors/type/radius to fit in.
-  const CLERK_APPEARANCE={
-    variables:{colorPrimary:"#0f7b6c",colorText:"#1d2421",colorTextSecondary:"#6b7670",
-      colorBackground:"#ffffff",colorInputBackground:"#ffffff",colorInputText:"#1d2421",
-      borderRadius:"10px",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif"}
-  };
   const err=m=>{const e=$("a_err"); if(e) e.textContent=m||"";};
   const fine=m=>{const e=$("a_fine"); if(e) e.textContent=m;};
   let done=false;
+  function showTab(which){
+    $("a_signin_form").hidden=which!=="signin"; $("a_signup_form").hidden=which!=="signup";
+    $("a_tab_signin").className="btn "+(which==="signin"?"btn-dark":"btn-outline");
+    $("a_tab_signup").className="btn "+(which==="signup"?"btn-dark":"btn-outline");
+    err("");
+    fine(which==="signin"?"Sign in with your ASHA username and password."
+      :"Register with a username and password to save and sync your caseload.");
+  }
+  function clerkErrMsg(e,fallback){
+    const msg=e&&e.errors&&e.errors[0]&&e.errors[0].message;
+    return msg||fallback;
+  }
   async function exchangeAndGo(){
     if(done) return;
     try{
@@ -409,12 +427,54 @@
         if(suppress && window.Clerk.user){ try{ await window.Clerk.signOut(); }catch(_){} }
         else if(window.Clerk.user){ await exchangeAndGo(); return; }
         suppress=false;  // a completed sign-in from here on should proceed to the tool
-        window.Clerk.mountSignIn($("clerk-signin"), {appearance: CLERK_APPEARANCE});
-        window.Clerk.addListener(ev=>{ if(!suppress && ev.user && window.Clerk.session) exchangeAndGo(); });
+        wireForms();
       }catch(e){ err("Sign-in failed to load — refresh and retry"); }
     });
     s.addEventListener("error", ()=> err("Could not load sign-in (check your connection)."));
     document.head.appendChild(s);
+  }
+  // Custom-built sign-in/sign-up UI calling Clerk's headless client API
+  // directly (signIn.create/signUp.create + setActive) instead of mounting
+  // Clerk's own <SignIn/> component — same verification, Sahej's own markup.
+  function setBusy(btn,busy){ if(btn){ btn.disabled=busy; btn.textContent=busy?"…":btn.dataset.label; } }
+  async function doSignIn(){
+    const btn=$("a_signin_btn"); btn.dataset.label=btn.dataset.label||btn.textContent;
+    const username=$("a_username").value.trim(), password=$("a_password").value;
+    if(!username||!password){ err("Enter your username and password."); return; }
+    err(""); setBusy(btn,true);
+    try{
+      const client=window.Clerk.client;
+      const attempt=await client.signIn.create({strategy:"password",identifier:username,password:password});
+      if(attempt.status==="complete"){
+        await window.Clerk.setActive({session:attempt.createdSessionId});
+        fine("Signed in — opening your tool…"); await exchangeAndGo();
+      }else{ err("This account needs additional verification not supported here — contact support."); }
+    }catch(e){ err(clerkErrMsg(e,"Wrong username or password.")); }
+    finally{ setBusy(btn,false); }
+  }
+  async function doSignUp(){
+    const btn=$("a_signup_btn"); btn.dataset.label=btn.dataset.label||btn.textContent;
+    const name=$("a_su_name").value.trim(), username=$("a_su_username").value.trim(), password=$("a_su_password").value;
+    if(!name||!username||!password){ err("Fill in your name, a username and a password."); return; }
+    err(""); setBusy(btn,true);
+    try{
+      const client=window.Clerk.client;
+      const attempt=await client.signUp.create({username:username,password:password,firstName:name});
+      if(attempt.status==="complete"){
+        await window.Clerk.setActive({session:attempt.createdSessionId});
+        fine("Account created — opening your tool…"); await exchangeAndGo();
+      }else{ err("Could not finish sign-up (extra verification required) — contact support."); }
+    }catch(e){ err(clerkErrMsg(e,"Could not create that account — try a different username.")); }
+    finally{ setBusy(btn,false); }
+  }
+  function wireForms(){
+    $("a_tab_signin").addEventListener("click",()=>showTab("signin"));
+    $("a_tab_signup").addEventListener("click",()=>showTab("signup"));
+    $("a_signin_btn").addEventListener("click",doSignIn);
+    $("a_signup_btn").addEventListener("click",doSignUp);
+    $("a_password").addEventListener("keydown",e=>{if(e.key==="Enter")doSignIn();});
+    $("a_su_password").addEventListener("keydown",e=>{if(e.key==="Enter")doSignUp();});
+    showTab("signin");
   }
   initClerk();
 })();
